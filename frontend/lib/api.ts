@@ -1,165 +1,21 @@
-export type Role = 'LEADER' | 'MANAGER' | 'MEMBER';
-export type Language = 'EN' | 'RU' | 'UZ';
-export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'TESTING' | 'DONE' | 'CANCELLED';
-export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
+'use client';
 
-export interface MyTeam {
-  teamId: number;
-  teamName: string;
-  role: Role;
-  position: string | null;
-}
-
-export interface Employee {
-  id: number;
-  fullName: string;
-  username: string;
-  phone: string | null;
-  language: Language;
-  admin: boolean;
-  telegramLinked: boolean;
-  telegramLinkCode: string | null;
-  active: boolean;
-  memberships: MyTeam[];
-}
-
-export interface Member {
-  employeeId: number;
-  fullName: string;
-  username: string;
-  phone: string | null;
-  position: string | null;
-  role: Role;
-  telegramLinked: boolean;
-  telegramLinkCode: string | null;
-  joinedAt: string;
-}
-
-export interface Tag {
-  id: number;
-  name: string;
-  color: string | null;
-}
-
-export interface Task {
-  id: number;
-  title: string;
-  description: string | null;
-  priority: TaskPriority;
-  status: TaskStatus;
-  createdById: number;
-  createdByName: string;
-  assigneeId: number | null;
-  assigneeName: string | null;
-  tags: Tag[];
-  deadline: string | null;
-  createdAt: string;
-  takenAt: string | null;
-  completedAt: string | null;
-}
-
-export interface EmployeeStats {
-  employeeId: number;
-  fullName: string;
-  taken: number;
-  completed: number;
-  inProgress: number;
-  overdue: number;
-  avgCompletionHours: number | null;
-}
-
-export interface MonthlyStats {
-  year: number;
-  month: number;
-  totalCreated: number;
-  totalCompleted: number;
-  totalOpen: number;
-  totalInProgress: number;
-  totalTesting: number;
-  perEmployee: EmployeeStats[];
-}
-
-export interface Invite {
-  id: number;
-  token: string;
-  role: Role;
-  createdAt: string;
-  expiresAt: string | null;
-  createdByName: string;
-}
-
-export interface InviteInfo {
-  teamName: string;
-  role: Role;
-  alreadyMember: boolean;
-}
-
-export interface TaskBody {
-  title: string;
-  description?: string;
-  priority?: TaskPriority;
-  deadline?: string | null;
-  tagIds?: number[];
-  assigneeId?: number | null;
-}
-
-export interface TeamAdmin {
-  id: number;
-  name: string;
-  memberCount: number;
-  createdAt: string;
-}
-
-export function isManagerRole(role: Role | undefined): boolean {
-  return role === 'LEADER' || role === 'MANAGER';
-}
-
-export function getToken(): string | null {
-  return localStorage.getItem('token');
-}
-
-export function getStoredEmployee(): Employee | null {
-  const raw = localStorage.getItem('employee');
-  return raw ? (JSON.parse(raw) as Employee) : null;
-}
-
-export function storeAuth(token: string, employee: Employee) {
-  localStorage.setItem('token', token);
-  storeEmployee(employee);
-}
-
-export function storeEmployee(employee: Employee) {
-  localStorage.setItem('employee', JSON.stringify(employee));
-  // keep the selected team valid
-  const current = getCurrentTeamId();
-  if (employee.memberships.length > 0 && !employee.memberships.some((m) => m.teamId === current)) {
-    setCurrentTeamId(employee.memberships[0].teamId);
-  }
-}
-
-export function clearAuth() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('employee');
-  localStorage.removeItem('teamId');
-}
-
-export function getCurrentTeamId(): number | null {
-  const raw = localStorage.getItem('teamId');
-  return raw ? Number(raw) : null;
-}
-
-export function setCurrentTeamId(teamId: number) {
-  localStorage.setItem('teamId', String(teamId));
-}
-
-/** The membership of the currently selected team. */
-export function getCurrentMembership(employee: Employee | null): MyTeam | null {
-  if (!employee || employee.memberships.length === 0) {
-    return null;
-  }
-  const current = getCurrentTeamId();
-  return employee.memberships.find((m) => m.teamId === current) ?? employee.memberships[0];
-}
+import { getToken, getCurrentTeamId, clearAuth } from './auth-client';
+import type {
+  Employee,
+  MyTeam,
+  Tag,
+  Task,
+  TaskBody,
+  Member,
+  MonthlyStats,
+  Invite,
+  InviteInfo,
+  TeamAdmin,
+  Language,
+  TaskStatus,
+  Role,
+} from './types';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {

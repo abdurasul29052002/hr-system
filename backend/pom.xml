@@ -9,7 +9,7 @@
         <relativePath/>
     </parent>
     <groupId>uz.sonic</groupId>
-    <artifactId>hr-backend</artifactId>
+    <artifactId>backend</artifactId>
     <version>0.0.1</version>
     <name>hr-backend</name>
     <description>HR employee &amp; task management backend with Telegram bot</description>

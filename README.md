@@ -13,7 +13,7 @@ Web sayt (React) + Telegram bot orqali xodimlarning ish jarayonini boshqarish ti
 ## Tarkib
 
 - `backend/` — Spring Boot 4 (Java 25), REST API + Telegram bot (bitta deploy)
-- `frontend/` — React + Vite + TypeScript, 3 tilli (EN default / RU / UZ)
+- `frontend-next/` — Next.js 16 (App Router + SSR) + TypeScript, 3 tilli (EN default / RU / UZ)
 
 ## Ishga tushirish
 
@@ -34,10 +34,10 @@ $env:DB_URL="jdbc:postgresql://host:5432/hrdb"; $env:DB_USERNAME="..."; $env:DB_
 
 Birinchi ishga tushishda loyiha egasi (ADMIN) yaratiladi: **admin / admin123** (env: `APP_ADMIN_USERNAME` / `APP_ADMIN_PASSWORD`) — darhol parolni o'zgartiring. Qolgan userlar o'zi ro'yxatdan o'tadi.
 
-### Frontend (port 5173)
+### Frontend (port 3000)
 
 ```powershell
-cd frontend
+cd frontend-next
 npm install
 npm run dev
 ```
@@ -45,7 +45,7 @@ npm run dev
 > Node PATH'da bo'lmasa: `C:\Users\abdur\.tools\node` papkasida Node 22 bor
 > (`$env:PATH = "C:\Users\abdur\.tools\node;$env:PATH"`).
 
-Vite dev-server `/api` so'rovlarini `localhost:8080` ga proxy qiladi.
+Next.js dev-server `/api` so'rovlarini `localhost:8080` ga proxy qiladi (rewrites orqali).
 
 ### Telegram bot
 
