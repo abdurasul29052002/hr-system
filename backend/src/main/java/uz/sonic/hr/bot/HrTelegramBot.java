@@ -645,6 +645,23 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                 "#" + event.taskId() + " " + event.title());
     }
 
+    @Async
+    @EventListener
+    public void onCommentAdded(CommentEvents.CommentAdded event) {
+        if (!enabled) {
+            return;
+        }
+        // Notify mentioned users
+        String taskRef = "#" + event.taskId() + " " + event.taskTitle();
+        for (Long mentionedId : event.mentionedIds()) {
+            employeeRepository.findById(mentionedId)
+                    .filter(e -> e.getTelegramChatId() != null)
+                    .ifPresent(mentioned -> send(mentioned.getTelegramChatId(),
+                            BotMessages.get(mentioned.getLanguage(), "notif_mentioned",
+                                    event.authorName(), taskRef), null));
+        }
+    }
+
     private void notifyAssignee(Long assigneeId, String taskRef) {
         employeeRepository.findById(assigneeId)
                 .filter(e -> e.getTelegramChatId() != null)

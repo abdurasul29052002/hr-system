@@ -110,6 +110,101 @@ export interface TeamAdmin {
   createdAt: string;
 }
 
+export interface TaskComment {
+  id: number;
+  taskId: number;
+  authorId: number;
+  authorName: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string | null;
+  mentionedEmployeeIds: number[];
+}
+
+export interface CommentRequest {
+  content: string;
+}
+
+export interface TaskAttachment {
+  id: number;
+  taskId: number;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedByName: string;
+  uploadedAt: string;
+  downloadUrl: string;
+}
+
+export type NotificationType =
+  | 'MENTIONED'
+  | 'TASK_ASSIGNED'
+  | 'TASK_COMPLETED'
+  | 'TASK_APPROVED'
+  | 'TASK_REJECTED'
+  | 'INVITE_RECEIVED'
+  | 'COMMENT_ADDED';
+
+export interface Notification {
+  id: number;
+  type: NotificationType;
+  title: string;
+  message: string | null;
+  relatedTaskId: number | null;
+  relatedCommentId: number | null;
+  relatedInviteId: number | null;
+  actorName: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export type TicketType = 'SUGGESTION' | 'BUG' | 'ISSUE' | 'PERMISSION_REQUEST' | 'OTHER';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export interface Ticket {
+  id: number;
+  creatorId: number;
+  creatorName: string;
+  subject: string;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+  status: TicketStatus;
+  createdAt: string;
+  updatedAt: string | null;
+  resolvedAt: string | null;
+  resolvedByName: string | null;
+  messageCount: number;
+}
+
+export interface TicketDetail extends Ticket {
+  messages: TicketMessage[];
+}
+
+export interface TicketMessage {
+  id: number;
+  senderId: number;
+  senderName: string;
+  message: string;
+  isAdminResponse: boolean;
+  createdAt: string;
+}
+
+export interface CreateTicketRequest {
+  subject: string;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+}
+
+export interface TicketStats {
+  openCount: number;
+  inProgressCount: number;
+  resolvedCount: number;
+  totalCount: number;
+}
+
 export function isManagerRole(role: Role | undefined): boolean {
   return role === 'LEADER' || role === 'MANAGER';
 }

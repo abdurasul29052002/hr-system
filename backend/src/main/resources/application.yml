@@ -30,6 +30,18 @@ app:
   cors:
     # Comma-separated allowed origins (Vercel frontend URL)
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  upload:
+    # File upload settings
+    base-path: ${UPLOAD_BASE_PATH:./data/uploads}
+    max-file-size: ${UPLOAD_MAX_FILE_SIZE:5242880} # 5MB in bytes
+
+# Spring file upload limits
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 ---
 spring:

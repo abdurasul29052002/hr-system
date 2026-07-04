@@ -12,7 +12,7 @@ public final class BotMessages {
     private static final Map<Language, Map<String, String>> M = new EnumMap<>(Language.class);
 
     static {
-        M.put(Language.EN, Map.ofEntries(
+        M.put(Language.EN, Map.<String, String>ofEntries(
                 Map.entry("language_set", "✅ Language set: English"),
                 Map.entry("enter_code", "🔑 Enter the connection code you received from your team leader (visible in your web profile):"),
                 Map.entry("invalid_code", "❌ Invalid code. Please try again or contact your team leader."),
@@ -64,6 +64,7 @@ public final class BotMessages {
                 Map.entry("notif_assigned_mgr", "📌 %s assigned the task to %s: %s"),
                 Map.entry("notif_taken", "👷 %s took the task: %s"),
                 Map.entry("notif_done", "✅ %s completed the task: %s"),
+                Map.entry("notif_mentioned", "💬 %s mentioned you in: %s"),
                 Map.entry("stats_header", "📊 Statistics for %d-%02d"),
                 Map.entry("stats_totals", "Created: %d\nCompleted: %d\nIn progress: %d\nOpen: %d"),
                 Map.entry("stats_row", "• %s — taken %d, done %d"),
@@ -77,7 +78,7 @@ public final class BotMessages {
                 Map.entry("st_DONE", "Done"),
                 Map.entry("st_CANCELLED", "Cancelled")));
 
-        M.put(Language.RU, Map.ofEntries(
+        M.put(Language.RU, Map.<String, String>ofEntries(
                 Map.entry("language_set", "✅ Язык установлен: Русский"),
                 Map.entry("enter_code", "🔑 Введите код подключения, полученный от лидера команды (виден в вашем веб-профиле):"),
                 Map.entry("invalid_code", "❌ Неверный код. Попробуйте снова или обратитесь к лидеру команды."),
@@ -129,6 +130,7 @@ public final class BotMessages {
                 Map.entry("notif_assigned_mgr", "📌 %s назначил(а) задачу %s: %s"),
                 Map.entry("notif_taken", "👷 %s взял(а) задачу: %s"),
                 Map.entry("notif_done", "✅ %s выполнил(а) задачу: %s"),
+                Map.entry("notif_mentioned", "💬 %s упомянул(а) вас в: %s"),
                 Map.entry("stats_header", "📊 Статистика за %d-%02d"),
                 Map.entry("stats_totals", "Создано: %d\nВыполнено: %d\nВ работе: %d\nОткрыто: %d"),
                 Map.entry("stats_row", "• %s — взято %d, выполнено %d"),
@@ -142,7 +144,7 @@ public final class BotMessages {
                 Map.entry("st_DONE", "Выполнена"),
                 Map.entry("st_CANCELLED", "Отменена")));
 
-        M.put(Language.UZ, Map.ofEntries(
+        M.put(Language.UZ, Map.<String, String>ofEntries(
                 Map.entry("language_set", "✅ Til tanlandi: O'zbekcha"),
                 Map.entry("enter_code", "🔑 Team leaderdan olgan ulanish kodini kiriting (web-profilingizda ko'rinadi):"),
                 Map.entry("invalid_code", "❌ Kod noto'g'ri. Qayta urinib ko'ring yoki team leaderga murojaat qiling."),
@@ -176,6 +178,7 @@ public final class BotMessages {
                 Map.entry("notif_testing", "🧪 %s taskni tekshiruvga yubordi: %s"),
                 Map.entry("notif_approved", "🎉 Taskingiz tasdiqlandi: %s"),
                 Map.entry("notif_rejected", "↩️ Taskingiz qayta ishlashga qaytarildi: %s"),
+                Map.entry("notif_mentioned", "💬 %s sizni eslatdi: %s"),
                 Map.entry("ask_title", "📝 Task nomini yuboring:"),
                 Map.entry("ask_desc", "📄 Tavsifni yuboring (yoki o'tkazib yuborish uchun \"-\"):"),
                 Map.entry("ask_priority", "⚡ Muhimlik darajasini tanlang:"),

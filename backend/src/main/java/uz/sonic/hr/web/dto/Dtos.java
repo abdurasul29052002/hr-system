@@ -134,4 +134,151 @@ public final class Dtos {
 
     public record UpdateLanguageRequest(@NotNull Language language) {
     }
+
+    // Task Comments
+    public record CommentDto(Long id, Long taskId, Long authorId, String authorName, String content,
+                             Instant createdAt, Instant updatedAt, List<Long> mentionedEmployeeIds) {
+
+        public static CommentDto from(TaskComment comment) {
+            return new CommentDto(
+                    comment.getId(),
+                    comment.getTask().getId(),
+                    comment.getAuthor().getId(),
+                    comment.getAuthor().getFullName(),
+                    comment.getContent(),
+                    comment.getCreatedAt(),
+                    comment.getUpdatedAt(),
+                    comment.getMentions().stream()
+                            .map(m -> m.getMentionedEmployee().getId())
+                            .toList()
+            );
+        }
+    }
+
+    public record CommentRequest(@NotBlank String content) {
+    }
+
+    // Task Attachments
+    public record AttachmentDto(Long id, Long taskId, String fileName, Long fileSize,
+                                String mimeType, String uploadedByName, Instant uploadedAt,
+                                String downloadUrl) {
+
+        public static AttachmentDto from(TaskAttachment attachment, String downloadUrl) {
+            return new AttachmentDto(
+                    attachment.getId(),
+                    attachment.getTask().getId(),
+                    attachment.getFileName(),
+                    attachment.getFileSize(),
+                    attachment.getMimeType(),
+                    attachment.getUploadedBy().getFullName(),
+                    attachment.getUploadedAt(),
+                    downloadUrl
+            );
+        }
+    }
+
+    // Notifications
+    public record NotificationDto(Long id, NotificationType type, String title, String message,
+                                  Long relatedTaskId, Long relatedCommentId, Long relatedInviteId,
+                                  String actorName, boolean isRead, Instant createdAt) {
+
+        public static NotificationDto from(Notification notification) {
+            return new NotificationDto(
+                    notification.getId(),
+                    notification.getType(),
+                    notification.getTitle(),
+                    notification.getMessage(),
+                    notification.getRelatedTask() != null ? notification.getRelatedTask().getId() : null,
+                    notification.getRelatedComment() != null ? notification.getRelatedComment().getId() : null,
+                    notification.getRelatedInvite() != null ? notification.getRelatedInvite().getId() : null,
+                    notification.getActor() != null ? notification.getActor().getFullName() : null,
+                    notification.isRead(),
+                    notification.getCreatedAt()
+            );
+        }
+    }
+
+    public record UnreadCountDto(long count) {
+    }
+
+    // Tickets
+    public record CreateTicketRequest(@NotBlank String subject, @NotBlank String description,
+                                      @NotNull TicketType type, TicketPriority priority) {
+    }
+
+    public record TicketDto(Long id, Long creatorId, String creatorName, String subject, String description,
+                            TicketType type, TicketPriority priority, TicketStatus status,
+                            Instant createdAt, Instant updatedAt, Instant resolvedAt, String resolvedByName,
+                            int messageCount) {
+
+        public static TicketDto from(Ticket ticket) {
+            return new TicketDto(
+                    ticket.getId(),
+                    ticket.getCreator().getId(),
+                    ticket.getCreator().getFullName(),
+                    ticket.getSubject(),
+                    ticket.getDescription(),
+                    ticket.getType(),
+                    ticket.getPriority(),
+                    ticket.getStatus(),
+                    ticket.getCreatedAt(),
+                    ticket.getUpdatedAt(),
+                    ticket.getResolvedAt(),
+                    ticket.getResolvedBy() != null ? ticket.getResolvedBy().getFullName() : null,
+                    ticket.getMessages().size()
+            );
+        }
+    }
+
+    public record TicketDetailDto(Long id, Long creatorId, String creatorName, String subject, String description,
+                                  TicketType type, TicketPriority priority, TicketStatus status,
+                                  Instant createdAt, Instant updatedAt, Instant resolvedAt, String resolvedByName,
+                                  List<TicketMessageDto> messages) {
+
+        public static TicketDetailDto from(Ticket ticket) {
+            return new TicketDetailDto(
+                    ticket.getId(),
+                    ticket.getCreator().getId(),
+                    ticket.getCreator().getFullName(),
+                    ticket.getSubject(),
+                    ticket.getDescription(),
+                    ticket.getType(),
+                    ticket.getPriority(),
+                    ticket.getStatus(),
+                    ticket.getCreatedAt(),
+                    ticket.getUpdatedAt(),
+                    ticket.getResolvedAt(),
+                    ticket.getResolvedBy() != null ? ticket.getResolvedBy().getFullName() : null,
+                    ticket.getMessages().stream().map(TicketMessageDto::from).toList()
+            );
+        }
+    }
+
+    public record TicketMessageDto(Long id, Long senderId, String senderName, String message,
+                                   boolean isAdminResponse, Instant createdAt) {
+
+        public static TicketMessageDto from(TicketMessage msg) {
+            return new TicketMessageDto(
+                    msg.getId(),
+                    msg.getSender().getId(),
+                    msg.getSender().getFullName(),
+                    msg.getMessage(),
+                    msg.isAdminResponse(),
+                    msg.getCreatedAt()
+            );
+        }
+    }
+
+    public record AddMessageRequest(@NotBlank String message) {
+    }
+
+    public record UpdateTicketStatusRequest(@NotNull TicketStatus status) {
+    }
+
+    public record UpdateTicketPriorityRequest(@NotNull TicketPriority priority) {
+    }
+
+    public record TicketStatsDto(long openCount, long inProgressCount, long resolvedCount, long totalCount) {
+    }
 }
+

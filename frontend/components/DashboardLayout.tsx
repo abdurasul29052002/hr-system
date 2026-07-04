@@ -13,6 +13,7 @@ import {
 import { setLanguage } from '@/lib/i18n';
 import { isManagerRole } from '@/lib/types';
 import type { Employee } from '@/lib/types';
+import NotificationPanel from './NotificationPanel';
 import '@/lib/i18n';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -78,6 +79,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 ))}
               </select>
             )}
+
+            {/* Notification Panel */}
+            <NotificationPanel />
 
             <span className="text-sm text-gray-600">{employee.fullName}</span>
 

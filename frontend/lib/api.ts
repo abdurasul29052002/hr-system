@@ -15,6 +15,17 @@ import type {
   Language,
   TaskStatus,
   Role,
+  TaskComment,
+  CommentRequest,
+  TaskAttachment,
+  Notification,
+  Ticket,
+  TicketDetail,
+  CreateTicketRequest,
+  TicketMessage,
+  TicketStats,
+  TicketStatus,
+  TicketPriority,
 } from './types';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -130,4 +141,75 @@ export const api = {
 
   adminTeams: () => request<TeamAdmin[]>('/api/admin/teams'),
   adminEmployees: () => request<Employee[]>('/api/admin/employees'),
+
+  // Task Comments
+  addComment: (taskId: number, body: CommentRequest) =>
+    request<TaskComment>(`/api/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify(body) }),
+  listComments: (taskId: number) => request<TaskComment[]>(`/api/tasks/${taskId}/comments`),
+  getCommentCount: (taskId: number) => request<number>(`/api/tasks/${taskId}/comments/count`),
+  updateComment: (commentId: number, body: CommentRequest) =>
+    request<TaskComment>(`/api/comments/${commentId}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteComment: (commentId: number) => request<void>(`/api/comments/${commentId}`, { method: 'DELETE' }),
+
+  // Task Attachments
+  uploadAttachment: async (taskId: number, file: File): Promise<TaskAttachment> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const teamId = getCurrentTeamId();
+    if (teamId != null) {
+      headers['X-Team-Id'] = String(teamId);
+    }
+
+    const response = await fetch(`/api/tasks/${taskId}/attachments`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (response.status === 401) {
+      clearAuth();
+      window.location.href = '/login';
+    }
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || 'Upload failed');
+    }
+
+    return response.json();
+  },
+  listAttachments: (taskId: number) => request<TaskAttachment[]>(`/api/tasks/${taskId}/attachments`),
+  deleteAttachment: (attachmentId: number) => request<void>(`/api/attachments/${attachmentId}`, { method: 'DELETE' }),
+
+  // Notifications
+  getNotifications: (unreadOnly?: boolean) =>
+    request<Notification[]>(`/api/notifications${unreadOnly ? '?unreadOnly=true' : ''}`),
+  getUnreadCount: () => request<{ count: number }>('/api/notifications/unread-count'),
+  markAsRead: (notificationId: number) => request<void>(`/api/notifications/${notificationId}/read`, { method: 'POST' }),
+  markAllAsRead: () => request<void>('/api/notifications/read-all', { method: 'POST' }),
+
+  // Tickets (User)
+  createTicket: (body: CreateTicketRequest) => request<Ticket>('/api/tickets', { method: 'POST', body: JSON.stringify(body) }),
+  getMyTickets: () => request<Ticket[]>('/api/tickets/my'),
+  getTicket: (ticketId: number) => request<TicketDetail>(`/api/tickets/${ticketId}`),
+  addTicketMessage: (ticketId: number, message: string) =>
+    request<TicketMessage>(`/api/tickets/${ticketId}/messages`, { method: 'POST', body: JSON.stringify({ message }) }),
+
+  // Tickets (Admin)
+  getAllTickets: (status?: TicketStatus) =>
+    request<Ticket[]>(`/api/admin/tickets${status ? `?status=${status}` : ''}`),
+  getAdminTicket: (ticketId: number) => request<TicketDetail>(`/api/admin/tickets/${ticketId}`),
+  respondToTicket: (ticketId: number, message: string) =>
+    request<TicketMessage>(`/api/admin/tickets/${ticketId}/respond`, { method: 'POST', body: JSON.stringify({ message }) }),
+  updateTicketStatus: (ticketId: number, status: TicketStatus) =>
+    request<Ticket>(`/api/admin/tickets/${ticketId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  updateTicketPriority: (ticketId: number, priority: TicketPriority) =>
+    request<Ticket>(`/api/admin/tickets/${ticketId}/priority`, { method: 'PATCH', body: JSON.stringify({ priority }) }),
+  getTicketStats: () => request<TicketStats>('/api/admin/tickets/stats'),
 };
