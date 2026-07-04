@@ -97,20 +97,14 @@ Token bo'lmasa bot o'chirilgan holda backend baribir ishlaydi.
 
 ## Docker Deploy
 
-### Local Docker Compose
+### Backend Deploy (Server)
 
 ```bash
-# Barcha servislarni ishga tushirish
+# Backend'ni ishga tushirish
 docker compose up -d
 
-# Faqat backend
-docker compose up -d hr_system_backend
-
-# Faqat frontend
-docker compose up -d hr_system_frontend
-
 # Loglarni ko'rish
-docker compose logs -f
+docker compose logs -f hr_system_backend
 
 # To'xtatish
 docker compose down
@@ -119,28 +113,58 @@ docker compose down
 ### Environment Variables (.env fayli)
 
 ```env
+# Database
 DB_URL=jdbc:postgresql://postgres:5432/hrdb
 DB_USERNAME=hruser
 DB_PASSWORD=your_password
+
+# Security
 APP_JWT_SECRET=your-very-long-secret-key-change-in-production
 APP_ADMIN_USERNAME=admin
 APP_ADMIN_PASSWORD=admin123
+
+# Telegram Bot
 HR_BOT_TOKEN=123456:ABC-your-bot-token
 HR_BOT_USERNAME=your_hr_bot
+
+# CORS (Vercel frontend URL)
+CORS_ALLOWED_ORIGINS=https://your-app.vercel.app,http://localhost:3000
 ```
+
+## Frontend Deploy (Vercel)
+
+### 1. Vercel'ga Deploy qilish:
+
+```bash
+cd frontend
+
+# Vercel CLI o'rnatish (birinchi marta)
+npm i -g vercel
+
+# Deploy
+vercel
+```
+
+### 2. Environment Variables (Vercel Dashboard):
+
+Vercel Dashboard → Settings → Environment Variables:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_BACKEND_URL` | `https://your-backend-domain.com` |
+
+### 3. Git bilan avtomatik deploy:
+
+1. Vercel'da GitHub repository'ni ulang
+2. Frontend papkasini **Root Directory** sifatida belgilang
+3. Har safar push qilganingizda avtomatik deploy bo'ladi
 
 ## CI/CD (GitHub Actions)
 
-Loyihada 3 ta deploy workflow mavjud:
+Loyihada 1 ta deploy workflow mavjud:
 
-### 1. Backend Deploy
-`.github/workflows/deploy-backend.yml` — faqat backend o'zgarganda
-
-### 2. Frontend Deploy
-`.github/workflows/deploy-frontend.yml` — faqat frontend o'zgarganda
-
-### 3. Full Stack Deploy
-`.github/workflows/deploy-full.yml` — ikkala taraf o'zgarganda yoki manual
+### Backend Deploy
+`.github/workflows/deploy-backend.yml` — backend o'zgarganda avtomatik deploy
 
 ### GitHub Secrets (repository settings'da sozlang):
 
@@ -153,16 +177,12 @@ Loyihada 3 ta deploy workflow mavjud:
 
 ### Deploy oqimi:
 
-1. **`master`** yoki **`main`** branchga push qilsangiz
-2. GitHub Actions avtomatik ishga tushadi
-3. JAR/Frontend build qilinadi
-4. Server'ga SSH orqali ko'chiriladi
-5. Docker Compose orqali deploy qilinadi
-6. Health check amalga oshiriladi
+1. **Backend:** `master`/`main` branchga push → GitHub Actions → Server deploy
+2. **Frontend:** `master`/`main` branchga push → Vercel avtomatik deploy
 
-### Manual Deploy:
+### Manual Backend Deploy:
 
-GitHub repository → Actions → Workflow tanlang → "Run workflow"
+GitHub repository → Actions → "Backend Deploy" → "Run workflow"
 
 ### Server tayyorlash:
 
@@ -177,5 +197,8 @@ sudo chown $USER:$USER /opt/hr-system
 
 # .env faylini yarating
 cd /opt/hr-system
-nano .env  # environment variables'ni kiriting
+nano .env  # environment variables'ni kiriting (yuqoridagi .env example'ga qarang)
+
+# CORS_ALLOWED_ORIGINS'ga Vercel URL'ingizni qo'shing
+# Masalan: CORS_ALLOWED_ORIGINS=https://hr-system.vercel.app,http://localhost:3000
 ```
