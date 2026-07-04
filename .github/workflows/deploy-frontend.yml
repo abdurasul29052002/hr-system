@@ -1,0 +1,75 @@
+name: HR System Frontend Deploy
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build Next.js Application
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Copy files to remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "mkdir -p ${{ secrets.WORKING_DIR }}/frontend"
+          scp -o StrictHostKeyChecking=no frontend/Dockerfile ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/Dockerfile
+          scp -o StrictHostKeyChecking=no frontend/package*.json ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/
+          scp -r -o StrictHostKeyChecking=no frontend/public ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/
+          scp -r -o StrictHostKeyChecking=no frontend/.next ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/
+          scp -r -o StrictHostKeyChecking=no frontend/app ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/
+          scp -r -o StrictHostKeyChecking=no frontend/components ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/
+          scp -r -o StrictHostKeyChecking=no frontend/lib ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/
+          scp -o StrictHostKeyChecking=no frontend/next.config.ts ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/
+          scp -o StrictHostKeyChecking=no frontend/tsconfig.json ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/
+          scp -o StrictHostKeyChecking=no frontend/postcss.config.mjs ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/
+          scp -o StrictHostKeyChecking=no frontend/tailwind.config.ts ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/frontend/ || true
+
+      - name: Deploy frontend on Remote Server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            cd ${{ secrets.WORKING_DIR }}
+            docker compose up -d --build --force-recreate hr_system_frontend
+          EOF
+
+      - name: Health Check
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            echo "Waiting for frontend to start..."
+            sleep 15
+            curl -f http://localhost:3000 || exit 1
+            echo "Frontend is healthy!"
+          EOF

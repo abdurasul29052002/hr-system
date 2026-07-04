@@ -1,0 +1,70 @@
+name: HR System Backend Deploy
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('backend/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set Executable Permission for maven wrapper
+        run: chmod +x ./backend/mvnw
+
+      - name: Build Application JAR
+        working-directory: ./backend
+        run: ./mvnw clean package -DskipTests
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Copy JAR and Dockerfile to remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "mkdir -p ${{ secrets.WORKING_DIR }}/backend"
+          scp -o StrictHostKeyChecking=no backend/target/*.jar ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/backend/app.jar
+          scp -o StrictHostKeyChecking=no backend/Dockerfile ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/backend/Dockerfile
+
+      - name: Deploy backend on Remote Server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            cd ${{ secrets.WORKING_DIR }}
+            docker compose up -d --build --force-recreate hr_system_backend
+          EOF
+
+      - name: Health Check
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            echo "Waiting for backend to start..."
+            sleep 15
+            curl -f http://localhost:8080/actuator/health || exit 1
+            echo "Backend is healthy!"
+          EOF

@@ -13,7 +13,7 @@ Web sayt (React) + Telegram bot orqali xodimlarning ish jarayonini boshqarish ti
 ## Tarkib
 
 - `backend/` — Spring Boot 4 (Java 25), REST API + Telegram bot (bitta deploy)
-- `frontend-next/` — Next.js 16 (App Router + SSR) + TypeScript, 3 tilli (EN default / RU / UZ)
+- `frontend/` — Next.js 16 (App Router + SSR) + TypeScript, 3 tilli (EN default / RU / UZ)
 
 ## Ishga tushirish
 
@@ -37,7 +37,7 @@ Birinchi ishga tushishda loyiha egasi (ADMIN) yaratiladi: **admin / admin123** (
 ### Frontend (port 3000)
 
 ```powershell
-cd frontend-next
+cd frontend
 npm install
 npm run dev
 ```
@@ -94,3 +94,88 @@ Token bo'lmasa bot o'chirilgan holda backend baribir ishlaydi.
 | `APP_JWT_SECRET` | JWT imzo kaliti (prod'da majburiy almashtiring) |
 | `HR_BOT_TOKEN` / `HR_BOT_USERNAME` | Telegram bot |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | PostgreSQL (prod profil) |
+
+## Docker Deploy
+
+### Local Docker Compose
+
+```bash
+# Barcha servislarni ishga tushirish
+docker compose up -d
+
+# Faqat backend
+docker compose up -d hr_system_backend
+
+# Faqat frontend
+docker compose up -d hr_system_frontend
+
+# Loglarni ko'rish
+docker compose logs -f
+
+# To'xtatish
+docker compose down
+```
+
+### Environment Variables (.env fayli)
+
+```env
+DB_URL=jdbc:postgresql://postgres:5432/hrdb
+DB_USERNAME=hruser
+DB_PASSWORD=your_password
+APP_JWT_SECRET=your-very-long-secret-key-change-in-production
+APP_ADMIN_USERNAME=admin
+APP_ADMIN_PASSWORD=admin123
+HR_BOT_TOKEN=123456:ABC-your-bot-token
+HR_BOT_USERNAME=your_hr_bot
+```
+
+## CI/CD (GitHub Actions)
+
+Loyihada 3 ta deploy workflow mavjud:
+
+### 1. Backend Deploy
+`.github/workflows/deploy-backend.yml` — faqat backend o'zgarganda
+
+### 2. Frontend Deploy
+`.github/workflows/deploy-frontend.yml` — faqat frontend o'zgarganda
+
+### 3. Full Stack Deploy
+`.github/workflows/deploy-full.yml` — ikkala taraf o'zgarganda yoki manual
+
+### GitHub Secrets (repository settings'da sozlang):
+
+| Secret | Tavsif |
+|---|---|
+| `SSH_PRIVATE_KEY` | Server'ga SSH access uchun private key |
+| `SERVER_USER` | SSH user (masalan: `root` yoki `ubuntu`) |
+| `SERVER_IP` | Server IP manzili |
+| `WORKING_DIR` | Deploy papkasi (masalan: `/opt/hr-system`) |
+
+### Deploy oqimi:
+
+1. **`master`** yoki **`main`** branchga push qilsangiz
+2. GitHub Actions avtomatik ishga tushadi
+3. JAR/Frontend build qilinadi
+4. Server'ga SSH orqali ko'chiriladi
+5. Docker Compose orqali deploy qilinadi
+6. Health check amalga oshiriladi
+
+### Manual Deploy:
+
+GitHub repository → Actions → Workflow tanlang → "Run workflow"
+
+### Server tayyorlash:
+
+```bash
+# Docker va Docker Compose o'rnating
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Deploy papkasini yarating
+sudo mkdir -p /opt/hr-system
+sudo chown $USER:$USER /opt/hr-system
+
+# .env faylini yarating
+cd /opt/hr-system
+nano .env  # environment variables'ni kiriting
+```

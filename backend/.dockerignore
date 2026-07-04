@@ -1,0 +1,29 @@
+# Maven
+target/
+!target/*.jar
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE
+.idea/
+*.iml
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# H2 Database
+data/
+*.db
+*.mv.db
+*.trace.db
+
+# Logs
+*.log
