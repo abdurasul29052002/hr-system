@@ -20,10 +20,7 @@ import uz.sonic.hr.entity.*;
 import uz.sonic.hr.repo.EmployeeRepository;
 import uz.sonic.hr.repo.TagRepository;
 import uz.sonic.hr.repo.TeamMembershipRepository;
-import uz.sonic.hr.service.StatsService;
-import uz.sonic.hr.service.TaskEvents;
-import uz.sonic.hr.service.TaskService;
-import uz.sonic.hr.service.TeamService;
+import uz.sonic.hr.service.*;
 import uz.sonic.hr.web.dto.Dtos.MonthlyStats;
 import uz.sonic.hr.web.dto.Dtos.TagDto;
 import uz.sonic.hr.web.dto.Dtos.TaskDto;
@@ -147,6 +144,18 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                 .build());
     }
 
+    /**
+     * Get employee's current team membership (without sending team chooser).
+     * Returns null if no team is selected or found.
+     */
+    private TeamMembership getCurrentMembership(Employee employee) {
+        if (employee.getBotTeamId() == null) {
+            return null;
+        }
+        return membershipRepository.findByEmployeeIdAndTeamId(employee.getId(), employee.getBotTeamId())
+                .orElse(null);
+    }
+
     // ---------------------------------------------------------------- text
 
     private void handleText(Long chatId, String text, org.telegram.telegrambots.meta.api.objects.Message replyToMessage) {
@@ -161,8 +170,9 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                 // User is replying to a task notification - add as comment
                 try {
                     taskCommentService.addCommentFromTelegram(taskId, employee, text, (long) replyToMessage.getMessageId());
+                    TeamMembership membership = getCurrentMembership(employee);
                     send(chatId, "✅ " + BotMessages.get(lang, "comment_added_to_task", "#" + taskId),
-                         menuKeyboard(employee, getCurrentMembership(employee)));
+                         membership != null ? menuKeyboard(employee, membership) : null);
                 } catch (Exception e) {
                     send(chatId, "❌ Failed: " + e.getMessage(), null);
                 }
