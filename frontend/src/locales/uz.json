@@ -1,0 +1,143 @@
+{
+  "appName": "HR Tizimi",
+  "login": {
+    "title": "Kirish",
+    "username": "Login",
+    "password": "Parol",
+    "submit": "Kirish",
+    "error": "Login yoki parol noto'g'ri",
+    "noAccount": "Akkaunt yo'qmi?",
+    "registerLink": "Ro'yxatdan o'tish"
+  },
+  "register": {
+    "title": "Akkaunt yaratish",
+    "fullName": "F.I.Sh.",
+    "phone": "Telefon",
+    "submit": "Ro'yxatdan o'tish",
+    "haveAccount": "Akkaunt bormi?",
+    "loginLink": "Kirish"
+  },
+  "team": {
+    "createTitle": "Jamoangizni yarating",
+    "createHint": "Xush kelibsiz, {{name}}! Tasklarni boshqarish uchun jamoa yarating. Siz uning leaderi bo'lasiz.",
+    "name": "Jamoa nomi",
+    "createSubmit": "Jamoa yaratish",
+    "new": "Yangi jamoa",
+    "switcher": "Jamoa"
+  },
+  "nav": {
+    "tasks": "Tasklar",
+    "employees": "A'zolar",
+    "tags": "Teglar",
+    "stats": "Statistika",
+    "admin": "Admin panel",
+    "logout": "Chiqish"
+  },
+  "tasks": {
+    "board": "Task doskasi",
+    "newTask": "Yangi task",
+    "mineOnly": "Faqat meniki",
+    "open": "Ochiq",
+    "inProgress": "Jarayonda",
+    "testing": "Testda",
+    "done": "Bajarilgan",
+    "cancelled": "Bekor qilingan",
+    "take": "Olish",
+    "complete": "Yakunlash",
+    "release": "Qaytarish",
+    "cancel": "Taskni bekor qilish",
+    "approve": "Tasdiqlash",
+    "reject": "Qaytarish",
+    "assign": "Biriktirish",
+    "openPool": "— umumiy pul —",
+    "title": "Nomi",
+    "description": "Tavsif",
+    "priority": "Muhimlik",
+    "deadline": "Muddat",
+    "assignee": "Bajaruvchi",
+    "createdBy": "Yaratdi",
+    "tags": "Teglar",
+    "save": "Saqlash",
+    "close": "Yopish",
+    "empty": "Task yo'q",
+    "prio": { "LOW": "Past", "MEDIUM": "O'rta", "HIGH": "Yuqori" }
+  },
+  "employees": {
+    "title": "Jamoa a'zolari",
+    "add": "A'zo qo'shish",
+    "addExisting": "Mavjud userni qo'shish",
+    "addExistingPlaceholder": "login",
+    "remove": "Chiqarish",
+    "edit": "Tahrirlash",
+    "fullName": "F.I.Sh.",
+    "username": "Login",
+    "password": "Parol",
+    "passwordHint": "Parolni o'zgartirmaslik uchun bo'sh qoldiring",
+    "phone": "Telefon",
+    "position": "Lavozim",
+    "role": "Rol",
+    "language": "Til",
+    "telegram": "Telegram",
+    "linked": "Ulangan",
+    "code": "Kod",
+    "resetTelegram": "Telegramni tiklash",
+    "active": "Faol",
+    "inactive": "Nofaol",
+    "save": "Saqlash",
+    "close": "Yopish",
+    "roles": { "ADMIN": "Admin", "LEADER": "Leader", "MANAGER": "Manager", "MEMBER": "A'zo" }
+  },
+  "tags": {
+    "title": "Teglar",
+    "add": "Teg qo'shish",
+    "edit": "Tahrirlash",
+    "delete": "O'chirish",
+    "name": "Nomi",
+    "color": "Rang",
+    "empty": "Hozircha teg yo'q. Teg yarating va task yaratishda tanlang."
+  },
+  "invite": {
+    "button": "Taklif havolasi",
+    "title": "Taklif havolalari",
+    "hint": "Havolaga ega har kim jamoaga qo'shila oladi. Havola 7 kun amal qiladi.",
+    "create": "Yangi havola",
+    "empty": "Faol havolalar yo'q.",
+    "copy": "Nusxalash",
+    "revoke": "Bekor qilish",
+    "expires": "muddati"
+  },
+  "join": {
+    "title": "Jamoaga qo'shilish",
+    "authHint": "Taklifni qabul qilish uchun kiring yoki ro'yxatdan o'ting.",
+    "hint": "Sizni \"{{team}}\" jamoasiga {{role}} sifatida taklif qilishdi.",
+    "alreadyMember": "Siz allaqachon \"{{team}}\" jamoasidasiz.",
+    "submit": "Qo'shilish"
+  },
+  "admin": {
+    "title": "Admin panel",
+    "teams": "Jamoalar",
+    "teamName": "Jamoa nomi",
+    "memberCount": "A'zolar",
+    "createdAt": "Yaratilgan",
+    "users": "Barcha foydalanuvchilar",
+    "team": "Jamoa"
+  },
+  "stats": {
+    "title": "Oylik statistika",
+    "year": "Yil",
+    "month": "Oy",
+    "created": "Yaratilgan",
+    "completed": "Bajarilgan",
+    "inProgress": "Jarayonda",
+    "testing": "Testda",
+    "open": "Ochiq",
+    "employee": "A'zo",
+    "taken": "Olingan",
+    "overdue": "Muddati o'tgan",
+    "avgHours": "O'rt. soat",
+    "empty": "Bu oy uchun ma'lumot yo'q"
+  },
+  "settings": {
+    "language": "Til"
+  }
+}

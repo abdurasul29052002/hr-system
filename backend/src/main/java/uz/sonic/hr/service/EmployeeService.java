@@ -1,0 +1,181 @@
+package uz.sonic.hr.service;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import uz.sonic.hr.entity.Employee;
+import uz.sonic.hr.entity.Language;
+import uz.sonic.hr.entity.Role;
+import uz.sonic.hr.entity.TeamMembership;
+import uz.sonic.hr.repo.EmployeeRepository;
+import uz.sonic.hr.repo.TeamMembershipRepository;
+import uz.sonic.hr.web.dto.Dtos.*;
+
+import java.security.SecureRandom;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class EmployeeService {
+
+    private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    private final EmployeeRepository employeeRepository;
+    private final TeamMembershipRepository membershipRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    /** Self-registration: a teamless account; the user then creates a team or gets added to one. */
+    @Transactional
+    public Employee register(RegisterRequest request) {
+        if (employeeRepository.existsByUsername(request.username())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+        }
+        Employee employee = Employee.builder()
+                .fullName(request.fullName())
+                .username(request.username())
+                .password(passwordEncoder.encode(request.password()))
+                .phone(request.phone())
+                .language(request.language() != null ? request.language() : Language.EN)
+                .telegramLinkCode(generateUniqueLinkCode())
+                .build();
+        return employeeRepository.save(employee);
+    }
+
+    /** Creates a brand-new user and adds them to the actor's team. */
+    @Transactional
+    public TeamMembership createInTeam(NewMemberRequest request, TeamMembership actor) {
+        TeamService.requireManager(actor);
+        Role role = validateAssignableRole(request.role(), actor);
+        if (employeeRepository.existsByUsername(request.username())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+        }
+        Employee employee = employeeRepository.save(Employee.builder()
+                .fullName(request.fullName())
+                .username(request.username())
+                .password(passwordEncoder.encode(request.password()))
+                .phone(request.phone())
+                .language(request.language() != null ? request.language() : Language.EN)
+                .telegramLinkCode(generateUniqueLinkCode())
+                .build());
+        return membershipRepository.save(TeamMembership.builder()
+                .employee(employee)
+                .team(actor.getTeam())
+                .role(role)
+                .position(request.position())
+                .build());
+    }
+
+    /** Adds an already-registered user to the actor's team by username. */
+    @Transactional
+    public TeamMembership addExisting(AddMemberRequest request, TeamMembership actor) {
+        TeamService.requireManager(actor);
+        Role role = validateAssignableRole(request.role(), actor);
+        Employee employee = employeeRepository.findByUsername(request.username().trim())
+                .filter(Employee::isActive)
+                .filter(e -> !e.isAdmin())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (membershipRepository.existsByEmployeeIdAndTeamId(employee.getId(), actor.getTeam().getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "User is already in this team");
+        }
+        return membershipRepository.save(TeamMembership.builder()
+                .employee(employee)
+                .team(actor.getTeam())
+                .role(role)
+                .position(request.position())
+                .build());
+    }
+
+    /** Updates a member's per-team role/position. Role changes are leader-only. */
+    @Transactional
+    public TeamMembership updateMember(Long employeeId, UpdateMemberRequest request, TeamMembership actor) {
+        TeamService.requireManager(actor);
+        TeamMembership target = getMembership(employeeId, actor);
+        requireManagerCanTouch(actor, target);
+        if (request.role() != null && request.role() != target.getRole()) {
+            TeamService.requireLeader(actor);
+            if (target.getEmployee().getId().equals(actor.getEmployee().getId())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "You cannot change your own role");
+            }
+            if (target.getRole() == Role.LEADER && countLeaders(actor) <= 1) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "The team must keep at least one leader");
+            }
+            target.setRole(request.role());
+        }
+        target.setPosition(request.position());
+        return membershipRepository.save(target);
+    }
+
+    /** Removes a member from the actor's team (the account itself remains). */
+    @Transactional
+    public void removeFromTeam(Long employeeId, TeamMembership actor) {
+        TeamService.requireManager(actor);
+        TeamMembership target = getMembership(employeeId, actor);
+        requireManagerCanTouch(actor, target);
+        if (target.getEmployee().getId().equals(actor.getEmployee().getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You cannot remove yourself");
+        }
+        if (target.getRole() == Role.LEADER && countLeaders(actor) <= 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The team must keep at least one leader");
+        }
+        membershipRepository.delete(target);
+    }
+
+    /** Unlinks Telegram and issues a fresh link code for a member of the actor's team. */
+    @Transactional
+    public TeamMembership resetTelegram(Long employeeId, TeamMembership actor) {
+        TeamService.requireManager(actor);
+        TeamMembership target = getMembership(employeeId, actor);
+        Employee employee = target.getEmployee();
+        employee.setTelegramChatId(null);
+        employee.setTelegramLinkCode(generateUniqueLinkCode());
+        employeeRepository.save(employee);
+        return target;
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeamMembership> listMembers(TeamMembership actor) {
+        TeamService.requireManager(actor);
+        return membershipRepository.findAllByTeamIdWithEmployee(actor.getTeam().getId());
+    }
+
+    private long countLeaders(TeamMembership actor) {
+        return membershipRepository.countByTeamIdAndRole(actor.getTeam().getId(), Role.LEADER);
+    }
+
+    private static void requireManagerCanTouch(TeamMembership actor, TeamMembership target) {
+        if (actor.getRole() == Role.MANAGER && target.getRole() != Role.MEMBER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "A manager can only manage members");
+        }
+    }
+
+    private Role validateAssignableRole(Role requested, TeamMembership actor) {
+        Role role = requested != null ? requested : Role.MEMBER;
+        if (role != Role.MEMBER) {
+            TeamService.requireLeader(actor);
+        }
+        return role;
+    }
+
+    private TeamMembership getMembership(Long employeeId, TeamMembership actor) {
+        return membershipRepository.findByEmployeeIdAndTeamId(employeeId, actor.getTeam().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found"));
+    }
+
+    private String generateUniqueLinkCode() {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            StringBuilder sb = new StringBuilder(6);
+            for (int i = 0; i < 6; i++) {
+                sb.append(CODE_CHARS.charAt(RANDOM.nextInt(CODE_CHARS.length())));
+            }
+            String code = sb.toString();
+            if (employeeRepository.findByTelegramLinkCode(code).isEmpty()) {
+                return code;
+            }
+        }
+        throw new IllegalStateException("Could not generate a unique telegram link code");
+    }
+}

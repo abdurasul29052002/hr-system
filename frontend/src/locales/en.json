@@ -1,0 +1,143 @@
+{
+  "appName": "HR System",
+  "login": {
+    "title": "Sign in",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "error": "Invalid username or password",
+    "noAccount": "No account yet?",
+    "registerLink": "Register"
+  },
+  "register": {
+    "title": "Create an account",
+    "fullName": "Full name",
+    "phone": "Phone",
+    "submit": "Register",
+    "haveAccount": "Already have an account?",
+    "loginLink": "Sign in"
+  },
+  "team": {
+    "createTitle": "Create your team",
+    "createHint": "Welcome, {{name}}! Create a team to start managing tasks. You will become its leader.",
+    "name": "Team name",
+    "createSubmit": "Create team",
+    "new": "New team",
+    "switcher": "Team"
+  },
+  "nav": {
+    "tasks": "Tasks",
+    "employees": "Members",
+    "tags": "Tags",
+    "stats": "Statistics",
+    "admin": "Admin panel",
+    "logout": "Log out"
+  },
+  "tasks": {
+    "board": "Task board",
+    "newTask": "New task",
+    "mineOnly": "Only my tasks",
+    "open": "Open",
+    "inProgress": "In progress",
+    "testing": "In review",
+    "done": "Done",
+    "cancelled": "Cancelled",
+    "take": "Take",
+    "complete": "Complete",
+    "release": "Release",
+    "cancel": "Cancel task",
+    "approve": "Approve",
+    "reject": "Return",
+    "assign": "Assign",
+    "openPool": "— open pool —",
+    "title": "Title",
+    "description": "Description",
+    "priority": "Priority",
+    "deadline": "Deadline",
+    "assignee": "Assignee",
+    "createdBy": "Created by",
+    "tags": "Tags",
+    "save": "Save",
+    "close": "Close",
+    "empty": "No tasks",
+    "prio": { "LOW": "Low", "MEDIUM": "Medium", "HIGH": "High" }
+  },
+  "employees": {
+    "title": "Team members",
+    "add": "Add member",
+    "addExisting": "Add existing",
+    "addExistingPlaceholder": "username",
+    "remove": "Remove",
+    "edit": "Edit",
+    "fullName": "Full name",
+    "username": "Username",
+    "password": "Password",
+    "passwordHint": "Leave empty to keep the current password",
+    "phone": "Phone",
+    "position": "Position",
+    "role": "Role",
+    "language": "Language",
+    "telegram": "Telegram",
+    "linked": "Connected",
+    "code": "Code",
+    "resetTelegram": "Reset Telegram",
+    "active": "Active",
+    "inactive": "Inactive",
+    "save": "Save",
+    "close": "Close",
+    "roles": { "ADMIN": "Admin", "LEADER": "Leader", "MANAGER": "Manager", "MEMBER": "Member" }
+  },
+  "tags": {
+    "title": "Tags",
+    "add": "Add tag",
+    "edit": "Edit",
+    "delete": "Delete",
+    "name": "Name",
+    "color": "Color",
+    "empty": "No tags yet. Create tags and pick them when creating a task."
+  },
+  "invite": {
+    "button": "Invite link",
+    "title": "Invite links",
+    "hint": "Anyone with the link can join this team. Links expire in 7 days.",
+    "create": "New link",
+    "empty": "No active invite links.",
+    "copy": "Copy",
+    "revoke": "Revoke",
+    "expires": "expires"
+  },
+  "join": {
+    "title": "Join a team",
+    "authHint": "Sign in or create an account to accept the invitation.",
+    "hint": "You are invited to join \"{{team}}\" as {{role}}.",
+    "alreadyMember": "You are already a member of \"{{team}}\".",
+    "submit": "Join team"
+  },
+  "admin": {
+    "title": "Admin panel",
+    "teams": "Teams",
+    "teamName": "Team name",
+    "memberCount": "Members",
+    "createdAt": "Created",
+    "users": "All users",
+    "team": "Team"
+  },
+  "stats": {
+    "title": "Monthly statistics",
+    "year": "Year",
+    "month": "Month",
+    "created": "Created",
+    "completed": "Completed",
+    "inProgress": "In progress",
+    "testing": "In review",
+    "open": "Open",
+    "employee": "Member",
+    "taken": "Taken",
+    "overdue": "Overdue",
+    "avgHours": "Avg. hours",
+    "empty": "No data for this month"
+  },
+  "settings": {
+    "language": "Language"
+  }
+}

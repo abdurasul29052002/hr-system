@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: hr-backend
+  datasource:
+    url: jdbc:h2:file:./data/hrdb;MODE=PostgreSQL;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ''
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    # HS256 secret, min 32 bytes. Override in prod: APP_JWT_SECRET env var
+    secret: ${APP_JWT_SECRET:change-me-hr-system-secret-key-0123456789}
+    expiration-hours: 72
+  bot:
+    # Get token from @BotFather. Bot is disabled when token is empty.
+    token: ${HR_BOT_TOKEN:}
+    username: ${HR_BOT_USERNAME:}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/hrdb}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  h2:
+    console:
+      enabled: false
