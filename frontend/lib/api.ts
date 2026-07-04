@@ -143,8 +143,42 @@ export const api = {
   adminEmployees: () => request<Employee[]>('/api/admin/employees'),
 
   // Task Comments
-  addComment: (taskId: number, body: CommentRequest) =>
-    request<TaskComment>(`/api/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify(body) }),
+  addComment: async (taskId: number, content: string, files?: File[]): Promise<TaskComment> => {
+    const formData = new FormData();
+    formData.append('content', content);
+
+    if (files && files.length > 0) {
+      files.forEach(file => formData.append('files', file));
+    }
+
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const teamId = getCurrentTeamId();
+    if (teamId != null) {
+      headers['X-Team-Id'] = String(teamId);
+    }
+
+    const response = await fetch(`/api/tasks/${taskId}/comments`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (response.status === 401) {
+      clearAuth();
+      window.location.href = '/login';
+    }
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || 'Failed to add comment');
+    }
+
+    return response.json();
+  },
   listComments: (taskId: number) => request<TaskComment[]>(`/api/tasks/${taskId}/comments`),
   getCommentCount: (taskId: number) => request<number>(`/api/tasks/${taskId}/comments/count`),
   updateComment: (commentId: number, body: CommentRequest) =>

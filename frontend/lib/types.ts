@@ -119,6 +119,16 @@ export interface TaskComment {
   createdAt: string;
   updatedAt: string | null;
   mentionedEmployeeIds: number[];
+  attachments: CommentAttachment[];
+}
+
+export interface CommentAttachment {
+  id: number;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: string;
+  downloadUrl: string;
 }
 
 export interface CommentRequest {

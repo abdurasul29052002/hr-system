@@ -31,9 +31,20 @@ app:
     # Comma-separated allowed origins (Vercel frontend URL)
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   upload:
-    # File upload settings
+    # File upload settings (deprecated - use S3)
     base-path: ${UPLOAD_BASE_PATH:./data/uploads}
     max-file-size: ${UPLOAD_MAX_FILE_SIZE:5242880} # 5MB in bytes
+  s3:
+    # S3 Storage Configuration
+    enabled: ${S3_ENABLED:true}
+    region: ${S3_REGION:us-east-1}
+    bucket-name: ${S3_BUCKET_NAME:}
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
+    # Custom endpoint for MinIO, DigitalOcean Spaces, etc.
+    endpoint: ${S3_ENDPOINT:}
+    # Path-style access (required for MinIO)
+    path-style-access: ${S3_PATH_STYLE_ACCESS:false}
 
 # Spring file upload limits
 spring:

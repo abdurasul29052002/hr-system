@@ -21,20 +21,20 @@ public class TaskAttachmentService {
 
     private final TaskAttachmentRepository attachmentRepository;
     private final TaskRepository taskRepository;
-    private final FileStorageService fileStorageService;
+    private final S3StorageService s3StorageService;
 
     @Transactional
     public AttachmentDto uploadAttachment(Long taskId, MultipartFile file, TeamMembership actor) {
         Task task = getTaskInTeam(taskId, actor);
 
-        // Store file
-        String filePath = fileStorageService.storeFile(file, taskId);
+        // Upload to S3
+        String s3Key = s3StorageService.uploadFile(file, "tasks/" + taskId);
 
         // Create attachment record
         TaskAttachment attachment = TaskAttachment.builder()
                 .task(task)
                 .fileName(file.getOriginalFilename())
-                .filePath(filePath)
+                .filePath(s3Key) // Store S3 key
                 .fileSize(file.getSize())
                 .mimeType(file.getContentType())
                 .uploadedBy(actor.getEmployee())
@@ -42,7 +42,9 @@ public class TaskAttachmentService {
 
         attachment = attachmentRepository.save(attachment);
 
-        String downloadUrl = "/api/attachments/" + attachment.getId() + "/download";
+        // Generate public URL or presigned URL
+        String downloadUrl = s3StorageService.getPublicUrl(s3Key);
+
         return AttachmentDto.from(attachment, downloadUrl);
     }
 
@@ -65,8 +67,8 @@ public class TaskAttachmentService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Attachment not in your team");
         }
 
-        // Delete file from storage
-        fileStorageService.deleteFile(attachment.getFilePath());
+        // Delete from S3
+        s3StorageService.deleteFile(attachment.getFilePath());
 
         // Delete record
         attachmentRepository.delete(attachment);
@@ -79,7 +81,7 @@ public class TaskAttachmentService {
 
         return attachments.stream()
                 .map(a -> {
-                    String downloadUrl = "/api/attachments/" + a.getId() + "/download";
+                    String downloadUrl = s3StorageService.getPublicUrl(a.getFilePath());
                     return AttachmentDto.from(a, downloadUrl);
                 })
                 .toList();
@@ -96,6 +98,10 @@ public class TaskAttachmentService {
         }
 
         return attachment;
+    }
+
+    public String getAttachmentDownloadUrl(TaskAttachment attachment) {
+        return s3StorageService.getPublicUrl(attachment.getFilePath());
     }
 
     private Task getTaskInTeam(Long taskId, TeamMembership viewer) {

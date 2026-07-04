@@ -137,9 +137,10 @@ public final class Dtos {
 
     // Task Comments
     public record CommentDto(Long id, Long taskId, Long authorId, String authorName, String content,
-                             Instant createdAt, Instant updatedAt, List<Long> mentionedEmployeeIds) {
+                             Instant createdAt, Instant updatedAt, List<Long> mentionedEmployeeIds,
+                             List<CommentAttachmentDto> attachments) {
 
-        public static CommentDto from(TaskComment comment) {
+        public static CommentDto from(TaskComment comment, S3StorageService s3Service) {
             return new CommentDto(
                     comment.getId(),
                     comment.getTask().getId(),
@@ -150,7 +151,25 @@ public final class Dtos {
                     comment.getUpdatedAt(),
                     comment.getMentions().stream()
                             .map(m -> m.getMentionedEmployee().getId())
+                            .toList(),
+                    comment.getAttachments().stream()
+                            .map(a -> CommentAttachmentDto.from(a, s3Service))
                             .toList()
+            );
+        }
+    }
+
+    public record CommentAttachmentDto(Long id, String fileName, Long fileSize, String mimeType,
+                                       Instant uploadedAt, String downloadUrl) {
+
+        public static CommentAttachmentDto from(CommentAttachment attachment, S3StorageService s3Service) {
+            return new CommentAttachmentDto(
+                    attachment.getId(),
+                    attachment.getFileName(),
+                    attachment.getFileSize(),
+                    attachment.getMimeType(),
+                    attachment.getUploadedAt(),
+                    s3Service.getPublicUrl(attachment.getFilePath())
             );
         }
     }

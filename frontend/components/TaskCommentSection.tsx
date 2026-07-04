@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '@/lib/api';
 import { getStoredEmployee } from '@/lib/auth-client';
@@ -20,6 +20,8 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tab state for new comment
   const [newCommentTab, setNewCommentTab] = useState<'write' | 'preview'>('write');
@@ -49,16 +51,36 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
 
     setSubmitting(true);
     try {
-      const request: CommentRequest = { content: newComment.trim() };
-      const comment = await api.addComment(taskId, request);
+      const comment = await api.addComment(taskId, newComment.trim(), selectedFiles);
       setComments([...comments, comment]);
       setNewComment('');
+      setSelectedFiles([]);
       setNewCommentTab('write');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to add comment');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    // Validate each file
+    const validFiles = files.filter(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`${file.name}: File too large (max 5MB)`);
+        return false;
+      }
+      return true;
+    });
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleEdit = (comment: TaskComment) => {
@@ -216,8 +238,43 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
                   </div>
                 </div>
               ) : (
-                <div className="prose prose-sm max-w-none">
-                  <MarkdownRenderer content={comment.content} />
+                <div>
+                  <div className="prose prose-sm max-w-none">
+                    <MarkdownRenderer content={comment.content} />
+                  </div>
+
+                  {/* Comment Attachments */}
+                  {comment.attachments && comment.attachments.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {comment.attachments.map((attachment) => (
+                        <a
+                          key={attachment.id}
+                          href={attachment.downloadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block border border-gray-200 rounded p-2 hover:bg-gray-50"
+                        >
+                          {attachment.mimeType.startsWith('image/') ? (
+                            <img
+                              src={attachment.downloadUrl}
+                              alt={attachment.fileName}
+                              className="w-full h-32 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{attachment.fileName}</p>
+                                <p className="text-xs text-gray-500">{(attachment.fileSize / 1024).toFixed(1)} KB</p>
+                              </div>
+                            </div>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -271,6 +328,46 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
             )}
           </div>
         )}
+
+        {/* File Upload */}
+        <div className="space-y-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileSelect}
+            multiple
+            accept="image/*"
+            className="hidden"
+            id="comment-file-input"
+          />
+          <label
+            htmlFor="comment-file-input"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200 cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+            Attach images
+          </label>
+
+          {/* Selected Files */}
+          {selectedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedFiles.map((file, index) => (
+                <div key={index} className="flex items-center gap-2 px-2 py-1 bg-blue-50 text-blue-700 rounded text-sm">
+                  <span className="truncate max-w-[150px]">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(index)}
+                    className="text-blue-900 hover:text-red-600"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <button
           type="submit"

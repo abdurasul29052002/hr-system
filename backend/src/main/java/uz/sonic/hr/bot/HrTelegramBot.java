@@ -58,6 +58,7 @@ public class HrTelegramBot extends TelegramLongPollingBot {
     private final TagRepository tagRepository;
     private final TaskService taskService;
     private final StatsService statsService;
+    private final TaskCommentService taskCommentService;
     private final Map<Long, Session> sessions = new ConcurrentHashMap<>();
 
     public HrTelegramBot(@Value("${app.bot.token}") String token,
@@ -66,7 +67,8 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                          TeamMembershipRepository membershipRepository,
                          TagRepository tagRepository,
                          TaskService taskService,
-                         StatsService statsService) {
+                         StatsService statsService,
+                         TaskCommentService taskCommentService) {
         super(token == null || token.isBlank() ? "disabled" : token);
         this.botUsername = botUsername == null || botUsername.isBlank() ? "hr_bot" : botUsername;
         this.enabled = token != null && !token.isBlank();
@@ -75,6 +77,7 @@ public class HrTelegramBot extends TelegramLongPollingBot {
         this.tagRepository = tagRepository;
         this.taskService = taskService;
         this.statsService = statsService;
+        this.taskCommentService = taskCommentService;
     }
 
     public boolean isEnabled() {
@@ -92,7 +95,9 @@ public class HrTelegramBot extends TelegramLongPollingBot {
             if (update.hasCallbackQuery()) {
                 handleCallback(update.getCallbackQuery());
             } else if (update.hasMessage() && update.getMessage().hasText()) {
-                handleText(update.getMessage().getChatId(), update.getMessage().getText().trim());
+                org.telegram.telegrambots.meta.api.objects.Message replyTo =
+                    update.getMessage().getReplyToMessage();
+                handleText(update.getMessage().getChatId(), update.getMessage().getText().trim(), replyTo);
             }
         } catch (Exception e) {
             log.error("Bot update handling failed", e);
@@ -144,10 +149,26 @@ public class HrTelegramBot extends TelegramLongPollingBot {
 
     // ---------------------------------------------------------------- text
 
-    private void handleText(Long chatId, String text) {
+    private void handleText(Long chatId, String text, org.telegram.telegrambots.meta.api.objects.Message replyToMessage) {
         Session session = sessions.computeIfAbsent(chatId, id -> new Session());
         Employee employee = employeeRepository.findByTelegramChatId(chatId).orElse(null);
         Language lang = employee != null ? employee.getLanguage() : session.language;
+
+        // Check if this is a reply to a task notification
+        if (employee != null && replyToMessage != null) {
+            Long taskId = replyMessageMap.get(replyToMessage.getMessageId());
+            if (taskId != null) {
+                // User is replying to a task notification - add as comment
+                try {
+                    taskCommentService.addCommentFromTelegram(taskId, employee, text, (long) replyToMessage.getMessageId());
+                    send(chatId, "✅ " + BotMessages.get(lang, "comment_added_to_task", "#" + taskId),
+                         menuKeyboard(employee, getCurrentMembership(employee)));
+                } catch (Exception e) {
+                    send(chatId, "❌ Failed: " + e.getMessage(), null);
+                }
+                return;
+            }
+        }
 
         if (text.equals("/start")) {
             session.state = State.NONE;
@@ -651,16 +672,40 @@ public class HrTelegramBot extends TelegramLongPollingBot {
         if (!enabled) {
             return;
         }
-        // Notify mentioned users
+        // Notify mentioned users via Telegram
         String taskRef = "#" + event.taskId() + " " + event.taskTitle();
+        String message = BotMessages.get(Language.EN, "notif_mentioned", event.authorName(), taskRef);
+
         for (Long mentionedId : event.mentionedIds()) {
             employeeRepository.findById(mentionedId)
                     .filter(e -> e.getTelegramChatId() != null)
-                    .ifPresent(mentioned -> send(mentioned.getTelegramChatId(),
-                            BotMessages.get(mentioned.getLanguage(), "notif_mentioned",
-                                    event.authorName(), taskRef), null));
+                    .ifPresent(mentioned -> {
+                        // Send with reply markup - user can reply directly to this message
+                        SendMessage msg = SendMessage.builder()
+                                .chatId(mentioned.getTelegramChatId().toString())
+                                .text(BotMessages.get(mentioned.getLanguage(), "notif_mentioned",
+                                        event.authorName(), taskRef))
+                                .replyMarkup(org.telegram.telegrambots.meta.api.objects.replykeyboard.ForceReplyKeyboard.builder()
+                                        .forceReply(true)
+                                        .selective(true)
+                                        .inputFieldPlaceholder("Reply to add comment...")
+                                        .build())
+                                .build();
+
+                        try {
+                            org.telegram.telegrambots.meta.api.objects.Message sentMsg = execute(msg);
+                            // Store message mapping: telegram_message_id -> task_id
+                            // We'll use this to handle replies
+                            replyMessageMap.put(sentMsg.getMessageId(), event.taskId());
+                        } catch (Exception e) {
+                            log.error("Failed to send mention notification", e);
+                        }
+                    });
         }
     }
+
+    // Map to track which Telegram messages are about which tasks
+    private final java.util.Map<Integer, Long> replyMessageMap = new java.util.concurrent.ConcurrentHashMap<>();
 
     private void notifyAssignee(Long assigneeId, String taskRef) {
         employeeRepository.findById(assigneeId)

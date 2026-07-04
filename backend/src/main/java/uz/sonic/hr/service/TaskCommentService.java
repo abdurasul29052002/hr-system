@@ -5,8 +5,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import uz.sonic.hr.entity.*;
+import uz.sonic.hr.repo.CommentAttachmentRepository;
 import uz.sonic.hr.repo.EmployeeRepository;
 import uz.sonic.hr.repo.TaskCommentRepository;
 import uz.sonic.hr.repo.TaskRepository;
@@ -29,10 +31,12 @@ public class TaskCommentService {
     private final TaskRepository taskRepository;
     private final EmployeeRepository employeeRepository;
     private final TeamMembershipRepository membershipRepository;
+    private final CommentAttachmentRepository attachmentRepository;
+    private final S3StorageService s3StorageService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public CommentDto addComment(Long taskId, CommentRequest request, TeamMembership actor) {
+    public CommentDto addComment(Long taskId, CommentRequest request, TeamMembership actor, List<MultipartFile> files) {
         Task task = getTaskInTeam(taskId, actor);
         Employee author = actor.getEmployee();
 
@@ -57,6 +61,24 @@ public class TaskCommentService {
 
         comment = commentRepository.save(comment);
 
+        // Upload attachments to S3
+        if (files != null && !files.isEmpty()) {
+            for (MultipartFile file : files) {
+                if (!file.isEmpty()) {
+                    String s3Key = s3StorageService.uploadFile(file, "comments/" + comment.getId());
+                    CommentAttachment attachment = CommentAttachment.builder()
+                            .comment(comment)
+                            .fileName(file.getOriginalFilename())
+                            .filePath(s3Key)
+                            .fileSize(file.getSize())
+                            .mimeType(file.getContentType())
+                            .build();
+                    comment.getAttachments().add(attachment);
+                    attachmentRepository.save(attachment);
+                }
+            }
+        }
+
         // Publish event for notifications
         if (!mentionedEmployees.isEmpty()) {
             Set<Long> mentionedIds = mentionedEmployees.stream()
@@ -71,7 +93,7 @@ public class TaskCommentService {
             }
         }
 
-        return CommentDto.from(comment);
+        return CommentDto.from(comment, s3StorageService);
     }
 
     @Transactional
@@ -108,7 +130,7 @@ public class TaskCommentService {
             comment.getMentions().add(mention);
         }
 
-        return CommentDto.from(commentRepository.save(comment));
+        return CommentDto.from(commentRepository.save(comment), s3StorageService);
     }
 
     @Transactional
@@ -129,6 +151,11 @@ public class TaskCommentService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Comment not in your team");
         }
 
+        // Delete attachments from S3
+        for (CommentAttachment attachment : comment.getAttachments()) {
+            s3StorageService.deleteFile(attachment.getFilePath());
+        }
+
         commentRepository.delete(comment);
     }
 
@@ -136,7 +163,7 @@ public class TaskCommentService {
     public List<CommentDto> listComments(Long taskId, TeamMembership viewer) {
         Task task = getTaskInTeam(taskId, viewer);
         List<TaskComment> comments = commentRepository.findAllByTaskIdOrderByCreatedAtAsc(task.getId());
-        return comments.stream().map(CommentDto::from).toList();
+        return comments.stream().map(c -> CommentDto.from(c, s3StorageService)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -183,5 +210,60 @@ public class TaskCommentService {
             });
         }
         return employees;
+    }
+
+    /**
+     * Add comment from Telegram bot (reply to task notification).
+     * Used when user replies to a Telegram message about a task.
+     */
+    @Transactional
+    public TaskComment addCommentFromTelegram(Long taskId, Employee author, String content, Long telegramMessageId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+
+        // Check if author is a member of the task's team
+        boolean isMember = membershipRepository.findByEmployeeIdAndTeamId(author.getId(), task.getTeam().getId())
+                .isPresent();
+        if (!isMember) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a member of this team");
+        }
+
+        // Parse mentions
+        Set<String> mentionedUsernames = extractMentions(content);
+        Set<Employee> mentionedEmployees = resolveMentions(mentionedUsernames, task.getTeam());
+
+        TaskComment comment = TaskComment.builder()
+                .task(task)
+                .author(author)
+                .content(content)
+                .telegramMessageId(telegramMessageId)
+                .build();
+
+        // Create mention entities
+        for (Employee mentioned : mentionedEmployees) {
+            CommentMention mention = CommentMention.builder()
+                    .comment(comment)
+                    .mentionedEmployee(mentioned)
+                    .build();
+            comment.getMentions().add(mention);
+        }
+
+        comment = commentRepository.save(comment);
+
+        // Publish event for web notifications
+        if (!mentionedEmployees.isEmpty()) {
+            Set<Long> mentionedIds = mentionedEmployees.stream()
+                    .map(Employee::getId)
+                    .filter(id -> !id.equals(author.getId()))
+                    .collect(java.util.stream.Collectors.toSet());
+
+            if (!mentionedIds.isEmpty()) {
+                eventPublisher.publishEvent(new CommentEvents.CommentAdded(
+                        comment.getId(), taskId, task.getTitle(), author.getId(),
+                        author.getFullName(), mentionedIds));
+            }
+        }
+
+        return comment;
     }
 }
