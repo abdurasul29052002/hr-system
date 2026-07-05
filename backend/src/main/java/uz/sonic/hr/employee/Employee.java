@@ -38,11 +38,13 @@ public class Employee extends UserDetailsImpl {
     @Column(unique = true)
     private String telegramLinkCode;
 
-    /** Team currently selected in the Telegram bot (user may belong to several teams). */
+    /**
+     * Team currently selected in the Telegram bot (user may belong to several teams).
+     */
     private Long botTeamId;
 
     @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
+    public @NonNull Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 }

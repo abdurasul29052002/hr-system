@@ -1,5 +1,6 @@
 package uz.sonic.hr.admin;
 
+import org.jspecify.annotations.NonNull;
 import uz.sonic.hr.common.enums.*;
 import uz.sonic.hr.employee.*;
 import uz.sonic.hr.admin.*;
@@ -34,7 +35,7 @@ import java.util.List;
 public class Admin extends UserDetailsImpl {
 
     @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
+    public @NonNull Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }
 }
