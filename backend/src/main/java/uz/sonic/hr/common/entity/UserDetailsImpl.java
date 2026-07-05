@@ -9,8 +9,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.userdetails.UserDetails;
 import uz.sonic.hr.common.enums.Language;
+import uz.sonic.hr.common.enums.Role;
 
 /**
  * Common authenticatable account base for {@code Employee} and {@code Admin}.
@@ -42,14 +44,11 @@ public abstract class UserDetailsImpl extends BaseEntity implements UserDetails 
     @Builder.Default
     protected boolean active = true;
 
+    protected Role role;
+
     @Override
     public String getPassword() {
         return password;
-    }
-
-    @Override
-    public String getUsername() {
-        return username;
     }
 
     @Override
