@@ -23,11 +23,13 @@ jobs:
           java-version: '25'
           cache: maven
 
-      - name: Build backend
+      - name: Build & unit-test backend
         working-directory: ./backend
+        # `package` runs Surefire (*Test unit tests). Testcontainers *IT tests are Failsafe-only
+        # (mvn verify) and run in the separate integration-tests workflow.
         run: |
           chmod +x ./mvnw
-          ./mvnw -B clean package -DskipTests
+          ./mvnw -B clean package
 
   frontend:
     runs-on: ubuntu-latest

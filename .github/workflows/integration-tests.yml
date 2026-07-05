@@ -1,0 +1,38 @@
+name: Integration Tests
+
+# Runs the Testcontainers-backed integration tests (*IT) against a real PostgreSQL.
+# ubuntu-latest ships a running Docker daemon, which Testcontainers uses automatically —
+# no services: block needed. Kept separate from ci.yml because these are slower.
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'backend/**'
+      - '.github/workflows/integration-tests.yml'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Run integration tests (Testcontainers + PostgreSQL)
+        working-directory: ./backend
+        # `verify` runs Surefire (unit) then Failsafe (*IT with Testcontainers).
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B verify

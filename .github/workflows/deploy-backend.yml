@@ -47,17 +47,6 @@ jobs:
           scp -o StrictHostKeyChecking=no backend/Dockerfile ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/backend/Dockerfile
           scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/docker-compose.yml
 
-      - name: Provision .env on server (from ENV_FILE secret, if set)
-        env:
-          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
-        run: |
-          if [ -n "$ENV_FILE_CONTENT" ]; then
-            printf '%s' "$ENV_FILE_CONTENT" | ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "cat > ${{ secrets.WORKING_DIR }}/.env && chmod 600 ${{ secrets.WORKING_DIR }}/.env"
-            echo ".env synced from ENV_FILE secret"
-          else
-            echo "ENV_FILE secret not set — relying on the .env already present on the server (see DEPLOYMENT.md)"
-          fi
-
       - name: Deploy backend on Remote Server
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
@@ -65,7 +54,7 @@ jobs:
             cd ${{ secrets.WORKING_DIR }}
             if [ ! -f .env ]; then
               echo "ERROR: .env is missing at ${{ secrets.WORKING_DIR }}/.env"
-              echo "Set the ENV_FILE GitHub secret, or create the file manually (see DEPLOYMENT.md)."
+              echo "The server is configured once by hand — create the .env there (see DEPLOYMENT.md)."
               exit 1
             fi
             docker compose up -d --build --force-recreate hr_system_backend

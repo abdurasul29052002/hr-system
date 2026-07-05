@@ -71,7 +71,8 @@ GitHub Repository → Settings → Secrets and variables → Actions:
 - `SERVER_USER`: SSH username (ubuntu/root)
 - `SERVER_IP`: Server IP address
 - `WORKING_DIR`: `/opt/hr-system`
-- `ENV_FILE` *(optional, recommended)*: to'liq `.env` fayl mazmuni. O'rnatilsa, CI har deploy'da serverdagi `.env`ni shu secret'dan yozadi (fresh server o'zi bootstrap bo'ladi). O'rnatilmasa, serverdagi qo'lda yaratilgan `.env` ishlatiladi. Agar `.env` umuman bo'lmasa, deploy aniq xato bilan to'xtaydi.
+
+> **`.env` haqida:** Server bir marta qo'lda sozlanadi — yuqoridagi 2-qadamda `.env` faylni serverda o'zingiz yaratasiz. CI/CD `.env`ga tegmaydi, uni GitHub secret'dan yozmaydi; har deploy'da faqat serverda `.env` borligini tekshiradi. Agar `.env` yo'q bo'lsa, deploy aniq xato bilan to'xtaydi (`.env is missing`). Shunday qilib maxfiy qiymatlar faqat serverda turadi, GitHub'da emas.
 
 4. **Deploy qilish:**
 
