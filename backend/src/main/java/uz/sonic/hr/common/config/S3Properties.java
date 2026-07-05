@@ -13,6 +13,5 @@ public class S3Properties {
     private String bucketName;
     private String accessKey;
     private String secretKey;
-    private String endpoint; // For MinIO or custom S3-compatible storage
-    private boolean pathStyleAccess = false; // MinIO requires true
+    private String endpoint;
 }

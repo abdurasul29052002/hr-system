@@ -2,18 +2,14 @@ spring:
   application:
     name: hr-backend
   datasource:
-    url: jdbc:h2:file:./data/hrdb;MODE=PostgreSQL;AUTO_SERVER=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ''
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
   servlet:
     multipart:
       enabled: true
@@ -23,7 +19,6 @@ spring:
 server:
   port: 8080
 
-# Actuator — expose only health (+ liveness/readiness probes) for Docker/CI health checks.
 management:
   endpoints:
     web:
@@ -37,39 +32,17 @@ management:
 
 app:
   jwt:
-    # HS256 secret, min 32 bytes. Override in prod: APP_JWT_SECRET env var
-    secret: ${APP_JWT_SECRET:change-me-hr-system-secret-key-0123456789}
+    secret: ${APP_JWT_SECRET}
     expiration-hours: 72
   bot:
-    # Get token from @BotFather. Bot is disabled when token is empty.
     token: ${HR_BOT_TOKEN:}
     username: ${HR_BOT_USERNAME:}
   cors:
-    # Comma-separated allowed origins (Vercel frontend URL)
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
   s3:
-    # S3 storage — the only file backend (attachments, comment files) in every environment.
-    # Provide bucket + credentials via .env. Set S3_ENABLED=false only to disable uploads.
-    enabled: ${S3_ENABLED:true}
-    region: ${S3_REGION:us-east-1}
-    bucket-name: ${S3_BUCKET_NAME:}
-    access-key: ${S3_ACCESS_KEY:}
-    secret-key: ${S3_SECRET_KEY:}
-    # Custom endpoint for MinIO, DigitalOcean Spaces, etc.
-    endpoint: ${S3_ENDPOINT:}
-    # Path-style access (required for MinIO)
-    path-style-access: ${S3_PATH_STYLE_ACCESS:false}
-
----
-spring:
-  config:
-    activate:
-      on-profile: prod
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/hrdb}
-    driver-class-name: org.postgresql.Driver
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-  h2:
-    console:
-      enabled: false
+    enabled: ${S3_ENABLED}
+    region: ${S3_REGION}
+    bucket-name: ${S3_BUCKET_NAME}
+    access-key: ${S3_ACCESS_KEY}
+    secret-key: ${S3_SECRET_KEY}
+    endpoint: ${S3_ENDPOINT}

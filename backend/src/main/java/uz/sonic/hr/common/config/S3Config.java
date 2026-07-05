@@ -41,11 +41,6 @@ public class S3Config {
             builder.endpointOverride(URI.create(s3Properties.getEndpoint()));
         }
 
-        // Path-style access (required for MinIO)
-        if (s3Properties.isPathStyleAccess()) {
-            builder.forcePathStyle(true);
-        }
-
         log.info("S3 client initialized: enabled={}, bucket={}, region={}, endpoint={}",
                 s3Properties.isEnabled(),
                 s3Properties.getBucketName(),
