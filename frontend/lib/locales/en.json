@@ -60,7 +60,18 @@
     "save": "Save",
     "close": "Close",
     "empty": "No tasks",
-    "prio": { "LOW": "Low", "MEDIUM": "Medium", "HIGH": "High" }
+    "prio": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High"
+    },
+    "attachImages": "Attach images",
+    "details": "Task details",
+    "unassigned": "Unassigned",
+    "assignTo": "Assign to",
+    "created": "Created",
+    "comments": "Comments",
+    "attachments": "Attachments"
   },
   "employees": {
     "title": "Team members",
@@ -85,7 +96,21 @@
     "inactive": "Inactive",
     "save": "Save",
     "close": "Close",
-    "roles": { "ADMIN": "Admin", "LEADER": "Leader", "MANAGER": "Manager", "MEMBER": "Member" }
+    "roles": {
+      "ADMIN": "Admin",
+      "LEADER": "Leader",
+      "MANAGER": "Manager",
+      "MEMBER": "Member"
+    },
+    "addNew": "Create new user",
+    "addNewHint": "Creates a brand-new account in this team",
+    "addExistingHint": "Add someone who already has an account by username",
+    "removeConfirm": "Remove this member from the team?",
+    "you": "you",
+    "labels": "Labels",
+    "manageLabels": "Manage labels",
+    "labelsHint": "Specialization labels for members, e.g. Backend developer.",
+    "noLabels": "No labels yet."
   },
   "tags": {
     "title": "Tags",
@@ -130,12 +155,27 @@
     "completed": "Completed",
     "inProgress": "In progress",
     "testing": "In review",
+    "cancelled": "Cancelled",
     "open": "Open",
     "employee": "Member",
     "taken": "Taken",
     "overdue": "Overdue",
     "avgHours": "Avg. hours",
-    "empty": "No data for this month"
+    "empty": "No data for this month",
+    "downloadReport": "Download PDF",
+    "employeeOfMonth": "Employee of the month",
+    "workingNow": "Currently working on",
+    "noActive": "No one is working right now",
+    "active": "active",
+    "idle": "No active tasks",
+    "performance": "Performance",
+    "done": "done",
+    "onTime": "On time",
+    "onTimeRate": "on time",
+    "timeline": "Monthly timeline",
+    "noTimeline": "No tasks in this month",
+    "distribution": "Task distribution",
+    "tasksTotal": "tasks"
   },
   "comments": {
     "title": "Comments",
@@ -182,9 +222,37 @@
     "openCount": "Open",
     "inProgressCount": "In Progress",
     "resolvedCount": "Resolved",
-    "totalCount": "Total"
+    "totalCount": "Total",
+    "reply": "Write a reply…",
+    "send": "Send",
+    "conversation": "Conversation",
+    "newTicket": "New ticket",
+    "backToTickets": "Back to tickets",
+    "empty": "No tickets yet",
+    "startedBy": "Opened by"
   },
   "settings": {
     "language": "Language"
+  },
+  "account": {
+    "changePassword": "Change password",
+    "oldPassword": "Current password",
+    "newPassword": "New password",
+    "passwordChanged": "Password changed"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "create": "Create",
+    "close": "Close",
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirmDelete": "Are you sure?",
+    "copied": "Copied!",
+    "none": "—",
+    "search": "Search",
+    "back": "Back"
   }
 }

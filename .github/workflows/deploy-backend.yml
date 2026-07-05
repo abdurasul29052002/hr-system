@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - master
-      - main
     paths:
       - 'backend/**'
+      - 'docker-compose.yml'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
@@ -21,50 +21,70 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Cache Maven repository
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('backend/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '25'
+          cache: maven
 
       - name: Set Executable Permission for maven wrapper
         run: chmod +x ./backend/mvnw
 
       - name: Build Application JAR
         working-directory: ./backend
-        run: ./mvnw clean package -DskipTests
+        run: ./mvnw -B clean package -DskipTests
 
       - name: Set up SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Copy JAR and Dockerfile to remote server
+      - name: Copy JAR, Dockerfile and compose to remote server
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "mkdir -p ${{ secrets.WORKING_DIR }}/backend"
           scp -o StrictHostKeyChecking=no backend/target/*.jar ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/backend/app.jar
           scp -o StrictHostKeyChecking=no backend/Dockerfile ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/backend/Dockerfile
+          scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.WORKING_DIR }}/docker-compose.yml
+
+      - name: Provision .env on server (from ENV_FILE secret, if set)
+        env:
+          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
+        run: |
+          if [ -n "$ENV_FILE_CONTENT" ]; then
+            printf '%s' "$ENV_FILE_CONTENT" | ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "cat > ${{ secrets.WORKING_DIR }}/.env && chmod 600 ${{ secrets.WORKING_DIR }}/.env"
+            echo ".env synced from ENV_FILE secret"
+          else
+            echo "ENV_FILE secret not set — relying on the .env already present on the server (see DEPLOYMENT.md)"
+          fi
 
       - name: Deploy backend on Remote Server
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            set -e
             cd ${{ secrets.WORKING_DIR }}
+            if [ ! -f .env ]; then
+              echo "ERROR: .env is missing at ${{ secrets.WORKING_DIR }}/.env"
+              echo "Set the ENV_FILE GitHub secret, or create the file manually (see DEPLOYMENT.md)."
+              exit 1
+            fi
             docker compose up -d --build --force-recreate hr_system_backend
+            docker image prune -f
           EOF
 
       - name: Health Check
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
-            echo "Waiting for backend to start..."
-            sleep 15
-            curl -f http://localhost:8080/actuator/health || exit 1
-            echo "Backend is healthy!"
+            echo "Waiting for backend to become healthy..."
+            for i in $(seq 1 24); do
+              if curl -fsS http://localhost:8080/actuator/health >/dev/null 2>&1; then
+                echo "Backend is healthy!"
+                exit 0
+              fi
+              echo "Attempt $i/24 - not ready yet, retrying in 5s..."
+              sleep 5
+            done
+            echo "Backend failed health check — recent logs:"
+            cd ${{ secrets.WORKING_DIR }} && docker compose logs --tail=60 hr_system_backend
+            exit 1
           EOF

@@ -8,6 +8,9 @@ import type {
   Task,
   TaskBody,
   Member,
+  MemberLabel,
+  MemberActivity,
+  TimelineTask,
   MonthlyStats,
   Invite,
   InviteInfo,
@@ -120,17 +123,47 @@ export const api = {
     position?: string;
     role?: Role;
     language?: Language;
+    labelIds?: number[];
   }) => request<Member>('/api/employees', { method: 'POST', body: JSON.stringify(body) }),
-  addExistingMember: (body: { username: string; role?: Role; position?: string }) =>
+  addExistingMember: (body: { username: string; role?: Role; position?: string; labelIds?: number[] }) =>
     request<Member>('/api/employees/add-existing', { method: 'POST', body: JSON.stringify(body) }),
-  updateMember: (employeeId: number, body: { role?: Role; position?: string }) =>
+  updateMember: (employeeId: number, body: { role?: Role; position?: string; labelIds?: number[] }) =>
     request<Member>(`/api/employees/${employeeId}`, { method: 'PUT', body: JSON.stringify(body) }),
   removeMember: (employeeId: number) => request<void>(`/api/employees/${employeeId}`, { method: 'DELETE' }),
   resetTelegram: (employeeId: number) =>
     request<Member>(`/api/employees/${employeeId}/reset-telegram`, { method: 'POST' }),
 
+  // Member specialization labels
+  memberLabels: () => request<MemberLabel[]>('/api/member-labels'),
+  createMemberLabel: (body: { name: string; color?: string | null }) =>
+    request<MemberLabel>('/api/member-labels', { method: 'POST', body: JSON.stringify(body) }),
+  updateMemberLabel: (id: number, body: { name: string; color?: string | null }) =>
+    request<MemberLabel>(`/api/member-labels/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteMemberLabel: (id: number) => request<void>(`/api/member-labels/${id}`, { method: 'DELETE' }),
+
   monthlyStats: (year: number, month: number) =>
     request<MonthlyStats>(`/api/stats/monthly?year=${year}&month=${month}`),
+  currentActivity: () => request<MemberActivity[]>('/api/stats/current'),
+  timeline: (year: number, month: number) =>
+    request<TimelineTask[]>(`/api/stats/timeline?year=${year}&month=${month}`),
+  downloadReport: async (year: number, month: number): Promise<void> => {
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const teamId = getCurrentTeamId();
+    if (teamId != null) headers['X-Team-Id'] = String(teamId);
+    const res = await fetch(`/api/stats/report?year=${year}&month=${month}`, { headers });
+    if (!res.ok) throw new Error('Failed to generate report');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${year}-${String(month).padStart(2, '0')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 
   createInvite: (role?: Role) =>
     request<Invite>('/api/invites', { method: 'POST', body: JSON.stringify({ role: role ?? null }) }),

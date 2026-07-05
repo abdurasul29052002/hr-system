@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { api } from '@/lib/api';
 import { getToken, setCurrentTeamId, storeEmployee } from '@/lib/auth-client';
 import type { InviteInfo } from '@/lib/types';
+import AuthShell from '@/components/AuthShell';
+import { Button, PageLoader } from '@/components/ui';
 import '@/lib/i18n';
 
 export default function JoinPage() {
@@ -15,141 +16,58 @@ export default function JoinPage() {
   const { t } = useTranslation();
   const token = params.token as string;
 
-  const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
+  const [info, setInfo] = useState<InviteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [joining, setJoining] = useState(false);
-
-  const isAuthenticated = !!getToken();
+  const authed = !!getToken();
 
   useEffect(() => {
-    loadInviteInfo();
-  }, [token]);
+    if (!authed) { sessionStorage.setItem('pendingInvite', token); setLoading(false); return; }
+    api.inviteInfo(token).then(setInfo).catch((e) => setError(e instanceof Error ? e.message : 'Invalid or expired link')).finally(() => setLoading(false));
+  }, [token, authed]);
 
-  const loadInviteInfo = async () => {
-    try {
-      const info = await api.inviteInfo(token);
-      setInviteInfo(info);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid or expired invite link');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleJoin = async () => {
-    if (!isAuthenticated) {
-      // Store token in sessionStorage to continue after login
-      sessionStorage.setItem('pendingInvite', token);
-      router.push('/login');
-      return;
-    }
-
-    setJoining(true);
-    setError('');
-
+  const join = async () => {
+    setJoining(true); setError('');
     try {
       const team = await api.acceptInvite(token);
+      const updated = await api.me();
+      storeEmployee(updated);
       setCurrentTeamId(team.teamId);
-
-      // Refresh employee data
-      const updatedEmployee = await api.me();
-      storeEmployee(updatedEmployee);
-
-      router.push('/');
+      window.location.href = '/';
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to join team');
-    } finally {
+      setError(err instanceof Error ? err.message : 'Failed to join');
       setJoining(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">Loading...</div>
-      </div>
-    );
-  }
-
-  if (error || !inviteInfo) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold text-center mb-4 text-red-600">Error</h1>
-          <p className="text-center text-gray-600 mb-6">{error}</p>
-          <Link
-            href="/"
-            className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Go to Home
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (inviteInfo.alreadyMember) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold text-center mb-4">{t('join.title')}</h1>
-          <p className="text-center text-gray-600 mb-6">
-            {t('join.alreadyMember', { team: inviteInfo.teamName })}
-          </p>
-          <Link
-            href="/"
-            className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Go to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold text-center mb-4">{t('join.title')}</h1>
-
-        {!isAuthenticated ? (
-          <div className="mb-6">
-            <p className="text-center text-gray-600 mb-4">{t('join.authHint')}</p>
-            <div className="flex gap-2">
-              <Link
-                href="/login"
-                className="flex-1 text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                {t('login.title')}
-              </Link>
-              <Link
-                href="/register"
-                className="flex-1 text-center px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-              >
-                {t('register.title')}
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="text-center text-gray-600 mb-6">
-              {t('join.hint', {
-                team: inviteInfo.teamName,
-                role: t(`employees.roles.${inviteInfo.role}`),
-              })}
-            </p>
-
-            <button
-              onClick={handleJoin}
-              disabled={joining}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {joining ? '...' : t('join.submit')}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+    <AuthShell title={t('join.title')}>
+      {loading ? (
+        <PageLoader />
+      ) : !authed ? (
+        <div className="space-y-3">
+          <p className="text-center text-sm text-slate-500">{t('join.authHint')}</p>
+          <Button className="w-full" onClick={() => router.push('/login')}>{t('login.title')}</Button>
+          <Button variant="secondary" className="w-full" onClick={() => router.push('/register')}>{t('register.title')}</Button>
+        </div>
+      ) : error ? (
+        <div className="space-y-3 text-center">
+          <p className="text-sm text-red-600">{error}</p>
+          <Button className="w-full" onClick={() => router.push('/')}>{t('common.back')}</Button>
+        </div>
+      ) : info?.alreadyMember ? (
+        <div className="space-y-3 text-center">
+          <p className="text-sm text-slate-600">{t('join.alreadyMember', { team: info.teamName })}</p>
+          <Button className="w-full" onClick={() => router.push('/')}>{t('common.back')}</Button>
+        </div>
+      ) : info ? (
+        <div className="space-y-4 text-center">
+          <p className="text-sm text-slate-600">{t('join.hint', { team: info.teamName, role: t(`employees.roles.${info.role}`) })}</p>
+          <Button className="w-full" onClick={join} disabled={joining}>{joining ? '…' : t('join.submit')}</Button>
+          <Button variant="ghost" className="w-full" onClick={() => router.push('/')}>{t('common.back')}</Button>
+        </div>
+      ) : null}
+    </AuthShell>
   );
 }

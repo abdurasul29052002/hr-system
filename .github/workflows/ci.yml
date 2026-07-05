@@ -1,0 +1,51 @@
+name: CI
+
+# Pre-merge build check for both apps. Deploys are handled separately by deploy-backend.yml (master)
+# and Vercel (frontend). This just makes sure things compile/build before they reach master.
+on:
+  push:
+    branches-ignore:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Build backend
+        working-directory: ./backend
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B clean package -DskipTests
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: ./frontend
+        env:
+          # Baked into the build only to satisfy the rewrite; real value is set in Vercel.
+          NEXT_PUBLIC_BACKEND_URL: http://localhost:8080
+        run: |
+          npm ci
+          npm run build

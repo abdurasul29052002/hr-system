@@ -1,34 +1,57 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hr-system-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-hrdb}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - hr-postgres-data:/var/lib/postgresql/data
+    networks:
+      - hr-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   hr_system_backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: hr-system-backend:latest
     container_name: hr-system-backend
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Force the PostgreSQL profile and point the datasource at the postgres service.
+      # Everything else (credentials, JWT, S3, bot, CORS) comes from ./.env
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-hrdb}
+    env_file:
+      - ./.env
     ports:
       - "8080:8080"
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - DB_URL=${DB_URL:-jdbc:h2:file:/app/data/hrdb}
-      - DB_USERNAME=${DB_USERNAME:-sa}
-      - DB_PASSWORD=${DB_PASSWORD:-}
-      - APP_JWT_SECRET=${APP_JWT_SECRET:-change-this-secret-in-production}
-      - APP_ADMIN_USERNAME=${APP_ADMIN_USERNAME:-admin}
-      - APP_ADMIN_PASSWORD=${APP_ADMIN_PASSWORD:-admin123}
-      - HR_BOT_TOKEN=${HR_BOT_TOKEN:-}
-      - HR_BOT_USERNAME=${HR_BOT_USERNAME:-}
+    mem_limit: 1g
     volumes:
       - hr-data:/app/data
     networks:
       - hr-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 45s
 
 volumes:
+  hr-postgres-data:
+    driver: local
   hr-data:
     driver: local
 

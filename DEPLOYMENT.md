@@ -2,7 +2,9 @@
 
 ## Architecture
 
-- **Backend:** Self-hosted server (Docker + GitHub Actions CI/CD)
+- **Backend:** Self-hosted server — Docker Compose (`postgres` + backend) + GitHub Actions CI/CD
+- **Database:** PostgreSQL 16 (runs in Compose, `hr-postgres-data` volume)
+- **File storage:** S3-compatible bucket (attachments & comment images)
 - **Frontend:** Vercel (free tier, auto-deploy from Git)
 
 ## 🚀 Quick Start
@@ -29,12 +31,12 @@ sudo chown $USER:$USER /opt/hr-system
 cd /opt/hr-system
 ```
 
-2. **.env faylini yarating:**
+2. **.env faylini yarating** (`docker-compose.yml` yonida). `SPRING_PROFILES_ACTIVE=prod` va `DB_URL` compose tomonidan avtomatik o'rnatiladi — bu yerda faqat quyidagilar:
 
 ```bash
 cat > .env << 'EOF'
-# Database
-DB_URL=jdbc:postgresql://postgres:5432/hrdb
+# PostgreSQL (backend + postgres service uchun umumiy)
+DB_NAME=hrdb
 DB_USERNAME=hruser
 DB_PASSWORD=CHANGE_THIS_PASSWORD
 
@@ -43,14 +45,23 @@ APP_JWT_SECRET=CHANGE_THIS_TO_VERY_LONG_RANDOM_STRING
 APP_ADMIN_USERNAME=admin
 APP_ADMIN_PASSWORD=CHANGE_THIS_PASSWORD
 
-# Telegram Bot (optional)
-HR_BOT_TOKEN=
-HR_BOT_USERNAME=
+# S3 file storage (attachments) — MAJBURIY, aks holda fayl yuklash ishlamaydi
+S3_ENABLED=true
+S3_REGION=us-east-1
+S3_BUCKET_NAME=your-bucket-name
+S3_ACCESS_KEY=your-access-key
+S3_SECRET_KEY=your-secret-key
 
 # CORS - Vercel frontend URL'ini qo'shing
 CORS_ALLOWED_ORIGINS=https://your-app.vercel.app,http://localhost:3000
+
+# Telegram Bot (optional)
+HR_BOT_TOKEN=
+HR_BOT_USERNAME=
 EOF
 ```
+
+> `docker-compose.yml` PostgreSQL (`postgres:16`) service'ini o'z ichiga oladi — alohida DB o'rnatish shart emas. Ma'lumot `hr-postgres-data` volume'ida saqlanadi.
 
 3. **GitHub Secrets sozlang:**
 
@@ -60,6 +71,7 @@ GitHub Repository → Settings → Secrets and variables → Actions:
 - `SERVER_USER`: SSH username (ubuntu/root)
 - `SERVER_IP`: Server IP address
 - `WORKING_DIR`: `/opt/hr-system`
+- `ENV_FILE` *(optional, recommended)*: to'liq `.env` fayl mazmuni. O'rnatilsa, CI har deploy'da serverdagi `.env`ni shu secret'dan yozadi (fresh server o'zi bootstrap bo'ladi). O'rnatilmasa, serverdagi qo'lda yaratilgan `.env` ishlatiladi. Agar `.env` umuman bo'lmasa, deploy aniq xato bilan to'xtaydi.
 
 4. **Deploy qilish:**
 
@@ -142,11 +154,11 @@ curl https://your-project.vercel.app/api/auth/login
 ## 📝 Production Checklist
 
 ### Backend:
-- [ ] Change `APP_JWT_SECRET` to strong random string
+- [ ] Change `APP_JWT_SECRET` to strong random string (`openssl rand -base64 64`)
 - [ ] Change `APP_ADMIN_PASSWORD`
-- [ ] Change database password
+- [ ] Change `DB_PASSWORD`
+- [ ] Create the S3 bucket and set `S3_*` values (required for file uploads)
 - [ ] Add Vercel URL to `CORS_ALLOWED_ORIGINS`
-- [ ] Configure PostgreSQL (optional, default H2 file DB)
 - [ ] Setup Telegram bot (optional)
 - [ ] Configure domain/SSL (optional, use nginx + certbot)
 

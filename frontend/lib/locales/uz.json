@@ -60,7 +60,18 @@
     "save": "Saqlash",
     "close": "Yopish",
     "empty": "Task yo'q",
-    "prio": { "LOW": "Past", "MEDIUM": "O'rta", "HIGH": "Yuqori" }
+    "prio": {
+      "LOW": "Past",
+      "MEDIUM": "O'rta",
+      "HIGH": "Yuqori"
+    },
+    "attachImages": "Rasm biriktirish",
+    "details": "Task tafsilotlari",
+    "unassigned": "Biriktirilmagan",
+    "assignTo": "Biriktirish",
+    "created": "Yaratilgan",
+    "comments": "Izohlar",
+    "attachments": "Ilovalar"
   },
   "employees": {
     "title": "Jamoa a'zolari",
@@ -85,7 +96,21 @@
     "inactive": "Nofaol",
     "save": "Saqlash",
     "close": "Yopish",
-    "roles": { "ADMIN": "Admin", "LEADER": "Leader", "MANAGER": "Manager", "MEMBER": "A'zo" }
+    "roles": {
+      "ADMIN": "Admin",
+      "LEADER": "Leader",
+      "MANAGER": "Manager",
+      "MEMBER": "A'zo"
+    },
+    "addNew": "Yangi foydalanuvchi",
+    "addNewHint": "Bu jamoada yangi akkaunt yaratadi",
+    "addExistingHint": "Akkaunti bor odamni login orqali qo'shish",
+    "removeConfirm": "A'zoni jamoadan chiqarilsinmi?",
+    "you": "siz",
+    "labels": "Teglar",
+    "manageLabels": "Teglarni boshqarish",
+    "labelsHint": "A'zolar uchun ixtisoslik teglari, masalan Backend dasturchi.",
+    "noLabels": "Hozircha teg yo'q."
   },
   "tags": {
     "title": "Teglar",
@@ -130,12 +155,27 @@
     "completed": "Bajarilgan",
     "inProgress": "Jarayonda",
     "testing": "Testda",
+    "cancelled": "Bekor qilingan",
     "open": "Ochiq",
     "employee": "A'zo",
     "taken": "Olingan",
     "overdue": "Muddati o'tgan",
     "avgHours": "O'rt. soat",
-    "empty": "Bu oy uchun ma'lumot yo'q"
+    "empty": "Bu oy uchun ma'lumot yo'q",
+    "downloadReport": "PDF yuklab olish",
+    "employeeOfMonth": "Oyning eng yaxshi ishchisi",
+    "workingNow": "Hozir nimalar ustida ishlanyapti",
+    "noActive": "Hozir hech kim ishlamayapti",
+    "active": "faol",
+    "idle": "Faol task yo'q",
+    "performance": "Samaradorlik",
+    "done": "bajarildi",
+    "onTime": "Muddatida",
+    "onTimeRate": "muddatida",
+    "timeline": "Oylik timeline",
+    "noTimeline": "Bu oyda tasklar yo'q",
+    "distribution": "Umumiy taqsimot",
+    "tasksTotal": "ta task"
   },
   "comments": {
     "title": "Izohlar",
@@ -182,9 +222,37 @@
     "openCount": "Ochiq",
     "inProgressCount": "Jarayonda",
     "resolvedCount": "Hal qilindi",
-    "totalCount": "Jami"
+    "totalCount": "Jami",
+    "reply": "Javob yozing…",
+    "send": "Yuborish",
+    "conversation": "Yozishmalar",
+    "newTicket": "Yangi murojaat",
+    "backToTickets": "Murojaatlarga qaytish",
+    "empty": "Murojaatlar yo'q",
+    "startedBy": "Ochgan"
   },
   "settings": {
     "language": "Til"
+  },
+  "account": {
+    "changePassword": "Parolni o'zgartirish",
+    "oldPassword": "Joriy parol",
+    "newPassword": "Yangi parol",
+    "passwordChanged": "Parol o'zgartirildi"
+  },
+  "common": {
+    "cancel": "Bekor qilish",
+    "save": "Saqlash",
+    "create": "Yaratish",
+    "close": "Yopish",
+    "loading": "Yuklanmoqda…",
+    "saving": "Saqlanmoqda…",
+    "delete": "O'chirish",
+    "edit": "Tahrirlash",
+    "confirmDelete": "Ishonchingiz komilmi?",
+    "copied": "Nusxalandi!",
+    "none": "—",
+    "search": "Qidirish",
+    "back": "Orqaga"
   }
 }

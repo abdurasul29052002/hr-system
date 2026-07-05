@@ -23,6 +23,12 @@ export interface Employee {
   memberships: MyTeam[];
 }
 
+export interface MemberLabel {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
 export interface Member {
   employeeId: number;
   fullName: string;
@@ -30,6 +36,7 @@ export interface Member {
   phone: string | null;
   position: string | null;
   role: Role;
+  labels: MemberLabel[];
   telegramLinked: boolean;
   telegramLinkCode: string | null;
   joinedAt: string;
@@ -58,14 +65,29 @@ export interface Task {
   completedAt: string | null;
 }
 
+export interface TaskBrief {
+  id: number;
+  title: string;
+  status: TaskStatus;
+  overdue: boolean;
+}
+
 export interface EmployeeStats {
   employeeId: number;
   fullName: string;
   taken: number;
   completed: number;
   inProgress: number;
+  testing: number;
   overdue: number;
+  onTime: number;
   avgCompletionHours: number | null;
+  tasks: TaskBrief[];
+}
+
+export interface StatusSlice {
+  category: string;
+  count: number;
 }
 
 export interface MonthlyStats {
@@ -76,7 +98,41 @@ export interface MonthlyStats {
   totalOpen: number;
   totalInProgress: number;
   totalTesting: number;
+  totalCancelled: number;
+  totalOverdue: number;
+  employeeOfMonth: string | null;
   perEmployee: EmployeeStats[];
+  distribution: StatusSlice[];
+}
+
+export interface ActiveTask {
+  id: number;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  deadline: string | null;
+  takenAt: string | null;
+}
+
+export interface MemberActivity {
+  employeeId: number;
+  fullName: string;
+  position: string | null;
+  labels: MemberLabel[];
+  activeTasks: ActiveTask[];
+}
+
+export interface TimelineTask {
+  id: number;
+  title: string;
+  assigneeName: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  createdAt: string;
+  takenAt: string | null;
+  submittedAt: string | null;
+  completedAt: string | null;
+  deadline: string | null;
 }
 
 export interface Invite {

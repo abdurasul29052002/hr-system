@@ -1,6 +1,8 @@
 backend/target/
 backend/data/
 backend/logs/
+backend/app.jar
+backend/heapdump.hprof
 frontend/node_modules/
 frontend/dist/
 frontend/.next/

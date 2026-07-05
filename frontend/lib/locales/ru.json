@@ -60,7 +60,18 @@
     "save": "Сохранить",
     "close": "Закрыть",
     "empty": "Задач нет",
-    "prio": { "LOW": "Низкий", "MEDIUM": "Средний", "HIGH": "Высокий" }
+    "prio": {
+      "LOW": "Низкий",
+      "MEDIUM": "Средний",
+      "HIGH": "Высокий"
+    },
+    "attachImages": "Прикрепить изображения",
+    "details": "Детали задачи",
+    "unassigned": "Не назначено",
+    "assignTo": "Назначить",
+    "created": "Создано",
+    "comments": "Комментарии",
+    "attachments": "Вложения"
   },
   "employees": {
     "title": "Участники команды",
@@ -85,7 +96,21 @@
     "inactive": "Неактивен",
     "save": "Сохранить",
     "close": "Закрыть",
-    "roles": { "ADMIN": "Админ", "LEADER": "Лидер", "MANAGER": "Менеджер", "MEMBER": "Участник" }
+    "roles": {
+      "ADMIN": "Админ",
+      "LEADER": "Лидер",
+      "MANAGER": "Менеджер",
+      "MEMBER": "Участник"
+    },
+    "addNew": "Создать пользователя",
+    "addNewHint": "Создаёт новый аккаунт в этой команде",
+    "addExistingHint": "Добавить по логину того, у кого уже есть аккаунт",
+    "removeConfirm": "Удалить участника из команды?",
+    "you": "вы",
+    "labels": "Метки",
+    "manageLabels": "Управление метками",
+    "labelsHint": "Метки специализации участников, напр. Backend-разработчик.",
+    "noLabels": "Меток пока нет."
   },
   "tags": {
     "title": "Теги",
@@ -130,12 +155,27 @@
     "completed": "Выполнено",
     "inProgress": "В работе",
     "testing": "На проверке",
+    "cancelled": "Отменено",
     "open": "Открыто",
     "employee": "Участник",
     "taken": "Взято",
     "overdue": "Просрочено",
     "avgHours": "Ср. часы",
-    "empty": "Нет данных за этот месяц"
+    "empty": "Нет данных за этот месяц",
+    "downloadReport": "Скачать PDF",
+    "employeeOfMonth": "Сотрудник месяца",
+    "workingNow": "Сейчас в работе",
+    "noActive": "Сейчас никто не работает",
+    "active": "активных",
+    "idle": "Нет активных задач",
+    "performance": "Эффективность",
+    "done": "выполнено",
+    "onTime": "В срок",
+    "onTimeRate": "в срок",
+    "timeline": "Таймлайн за месяц",
+    "noTimeline": "Нет задач в этом месяце",
+    "distribution": "Распределение задач",
+    "tasksTotal": "задач"
   },
   "comments": {
     "title": "Комментарии",
@@ -182,9 +222,37 @@
     "openCount": "Открыто",
     "inProgressCount": "В работе",
     "resolvedCount": "Решено",
-    "totalCount": "Всего"
+    "totalCount": "Всего",
+    "reply": "Написать ответ…",
+    "send": "Отправить",
+    "conversation": "Переписка",
+    "newTicket": "Новый тикет",
+    "backToTickets": "Назад к тикетам",
+    "empty": "Тикетов пока нет",
+    "startedBy": "Открыл"
   },
   "settings": {
     "language": "Язык"
+  },
+  "account": {
+    "changePassword": "Сменить пароль",
+    "oldPassword": "Текущий пароль",
+    "newPassword": "Новый пароль",
+    "passwordChanged": "Пароль изменён"
+  },
+  "common": {
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "create": "Создать",
+    "close": "Закрыть",
+    "loading": "Загрузка…",
+    "saving": "Сохранение…",
+    "delete": "Удалить",
+    "edit": "Изменить",
+    "confirmDelete": "Вы уверены?",
+    "copied": "Скопировано!",
+    "none": "—",
+    "search": "Поиск",
+    "back": "Назад"
   }
 }

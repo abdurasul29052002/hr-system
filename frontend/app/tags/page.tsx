@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -8,192 +8,99 @@ import { api } from '@/lib/api';
 import { getStoredEmployee, getCurrentMembership } from '@/lib/auth-client';
 import { isManagerRole } from '@/lib/types';
 import type { Tag } from '@/lib/types';
+import { Button, Card, EmptyState, Field, Input, Modal, PageHeader, PageLoader } from '@/components/ui';
 import '@/lib/i18n';
+
+const PALETTE = ['#4f46e5', '#0891b2', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777', '#475569'];
 
 export default function TagsPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingTag, setEditingTag] = useState<Tag | null>(null);
-  const [formData, setFormData] = useState({ name: '', color: '#3b82f6' });
+  const [editing, setEditing] = useState<Tag | 'new' | null>(null);
 
-  const employee = getStoredEmployee();
-  const membership = getCurrentMembership(employee);
-  const isManager = isManagerRole(membership?.role);
+  const me = getStoredEmployee();
+  const isManager = isManagerRole(getCurrentMembership(me)?.role);
+
+  const load = useCallback(async () => {
+    try { setTags(await api.tags()); } catch (e) { console.error(e); } finally { setLoading(false); }
+  }, []);
 
   useEffect(() => {
-    if (!isManager) {
-      router.push('/');
-      return;
-    }
+    if (!isManager) { router.push('/'); return; }
+    load();
+  }, [isManager, router, load]);
 
-    loadTags();
-  }, [isManager, router]);
-
-  const loadTags = async () => {
-    try {
-      const data = await api.tags();
-      setTags(data);
-    } catch (error) {
-      console.error('Failed to load tags:', error);
-    } finally {
-      setLoading(false);
-    }
+  const remove = async (id: number) => {
+    if (!confirm(t('common.confirmDelete'))) return;
+    try { await api.deleteTag(id); await load(); } catch (e) { alert(e instanceof Error ? e.message : 'Error'); }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      if (editingTag) {
-        await api.updateTag(editingTag.id, formData);
-      } else {
-        await api.createTag(formData);
-      }
-      setShowForm(false);
-      setEditingTag(null);
-      setFormData({ name: '', color: '#3b82f6' });
-      loadTags();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to save tag');
-    }
-  };
-
-  const handleEdit = (tag: Tag) => {
-    setEditingTag(tag);
-    setFormData({ name: tag.name, color: tag.color || '#3b82f6' });
-    setShowForm(true);
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm(t('tags.delete') + '?')) return;
-
-    try {
-      await api.deleteTag(id);
-      loadTags();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to delete tag');
-    }
-  };
-
-  const handleCancel = () => {
-    setShowForm(false);
-    setEditingTag(null);
-    setFormData({ name: '', color: '#3b82f6' });
-  };
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="text-center py-8">Loading...</div>
-      </DashboardLayout>
-    );
-  }
+  if (loading) return <DashboardLayout><PageLoader /></DashboardLayout>;
 
   return (
     <DashboardLayout>
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">{t('tags.title')}</h2>
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            {t('tags.add')}
-          </button>
-        )}
-      </div>
-
-      {/* Form */}
-      {showForm && (
-        <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <h3 className="text-lg font-semibold mb-4">
-            {editingTag ? t('tags.edit') : t('tags.add')}
-          </h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('tags.name')}
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('tags.color')}
-              </label>
-              <input
-                type="color"
-                value={formData.color}
-                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                className="w-20 h-10 border border-gray-300 rounded cursor-pointer"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                {t('tasks.save')}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-              >
-                {t('tasks.close')}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Tags List */}
+      <PageHeader title={t('tags.title')} actions={<Button onClick={() => setEditing('new')}>+ {t('tags.add')}</Button>} />
       {tags.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">{t('tags.empty')}</div>
+        <EmptyState title={t('tags.empty')} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {tags.map((tag) => (
-            <div
-              key={tag.id}
-              className="bg-white p-4 rounded-lg shadow border border-gray-200 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-8 h-8 rounded"
-                  style={{ backgroundColor: tag.color || '#e5e7eb' }}
-                />
-                <span className="font-medium text-gray-900">{tag.name}</span>
+            <Card key={tag.id} className="flex items-center justify-between p-3">
+              <span className="rounded-full px-3 py-1 text-sm font-medium text-white" style={{ background: tag.color || '#64748b' }}>{tag.name}</span>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={() => setEditing(tag)}>{t('common.edit')}</Button>
+                <Button size="sm" variant="danger" onClick={() => remove(tag.id)}>{t('common.delete')}</Button>
               </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEdit(tag)}
-                  className="text-blue-600 hover:text-blue-700 text-sm"
-                >
-                  {t('tags.edit')}
-                </button>
-                <button
-                  onClick={() => handleDelete(tag.id)}
-                  className="text-red-600 hover:text-red-700 text-sm"
-                >
-                  {t('tags.delete')}
-                </button>
-              </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
+      {editing && <TagModal tag={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </DashboardLayout>
+  );
+}
+
+function TagModal({ tag, onClose, onSaved }: { tag: Tag | null; onClose: () => void; onSaved: () => void }) {
+  const { t } = useTranslation();
+  const [name, setName] = useState(tag?.name ?? '');
+  const [color, setColor] = useState(tag?.color ?? PALETTE[0]);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setBusy(true);
+    try {
+      if (tag) await api.updateTag(tag.id, { name, color });
+      else await api.createTag({ name, color });
+      onSaved();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Error'); setBusy(false); }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={tag ? t('tags.edit') : t('tags.add')} size="sm">
+      <form onSubmit={submit} className="space-y-3">
+        <Field label={t('tags.name')}><Input value={name} onChange={(e) => setName(e.target.value)} required autoFocus /></Field>
+        <Field label={t('tags.color')}>
+          <div className="flex flex-wrap gap-2">
+            {PALETTE.map((c) => (
+              <button key={c} type="button" onClick={() => setColor(c)}
+                className={`h-8 w-8 rounded-full transition-transform ${color === c ? 'scale-110 ring-2 ring-slate-800 ring-offset-2' : ''}`}
+                style={{ background: c }} aria-label={c} />
+            ))}
+          </div>
+        </Field>
+        <div className="rounded-lg bg-slate-50 p-3 text-center">
+          <span className="rounded-full px-3 py-1 text-sm font-medium text-white" style={{ background: color }}>{name || 'Tag'}</span>
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button type="submit" disabled={busy}>{t('common.save')}</Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

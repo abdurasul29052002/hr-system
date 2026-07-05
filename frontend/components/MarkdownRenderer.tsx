@@ -12,8 +12,8 @@ interface MarkdownRendererProps {
 
 export default function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
   return (
+    <div className={`prose prose-sm max-w-none ${className}`}>
     <ReactMarkdown
-      className={`prose prose-sm max-w-none ${className}`}
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeRaw, rehypeSanitize]}
       components={{
@@ -82,5 +82,6 @@ export default function MarkdownRenderer({ content, className = '' }: MarkdownRe
     >
       {content}
     </ReactMarkdown>
+    </div>
   );
 }

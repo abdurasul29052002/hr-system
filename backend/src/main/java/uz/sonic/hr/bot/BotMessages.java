@@ -1,7 +1,7 @@
 package uz.sonic.hr.bot;
 
-import uz.sonic.hr.entity.Language;
-import uz.sonic.hr.entity.TaskPriority;
+import uz.sonic.hr.common.enums.Language;
+import uz.sonic.hr.common.enums.TaskPriority;
 
 import java.util.EnumMap;
 import java.util.Map;

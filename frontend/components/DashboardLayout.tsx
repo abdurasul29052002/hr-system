@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
@@ -10,17 +10,43 @@ import {
   clearAuth,
   setCurrentTeamId,
 } from '@/lib/auth-client';
+import { api } from '@/lib/api';
 import { setLanguage } from '@/lib/i18n';
 import { isManagerRole } from '@/lib/types';
-import type { Employee } from '@/lib/types';
+import type { Employee, Language, Role } from '@/lib/types';
 import NotificationPanel from './NotificationPanel';
+import { Avatar, Badge, Button, Field, Input, Modal } from './ui';
 import '@/lib/i18n';
+
+const ROLE_COLOR: Record<Role, 'violet' | 'blue' | 'slate'> = {
+  LEADER: 'violet',
+  MANAGER: 'blue',
+  MEMBER: 'slate',
+};
+
+function useClickOutside(onOutside: () => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onOutside();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onOutside]);
+  return ref;
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [employee, setEmployee] = useState<Employee | null>(null);
+  const [teamOpen, setTeamOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+
+  const teamRef = useClickOutside(() => setTeamOpen(false));
+  const userRef = useClickOutside(() => setUserOpen(false));
 
   useEffect(() => {
     const emp = getStoredEmployee();
@@ -28,143 +54,211 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
       return;
     }
-
-    // Redirect to create-team if no teams
     if (!emp.admin && emp.memberships.length === 0) {
       router.push('/create-team');
       return;
     }
-
     setEmployee(emp);
     setLanguage(emp.language);
   }, [router]);
 
-  const handleLogout = () => {
-    clearAuth();
-    router.push('/login');
-  };
-
-  const handleTeamChange = (teamId: number) => {
-    setCurrentTeamId(teamId);
-    window.location.reload();
-  };
-
-  if (!employee) {
-    return null;
-  }
+  if (!employee) return null;
 
   const currentMembership = getCurrentMembership(employee);
   const isManager = isManagerRole(currentMembership?.role);
   const isAdmin = employee.admin;
 
+  const handleLogout = () => {
+    clearAuth();
+    router.push('/login');
+  };
+  const switchTeam = (teamId: number) => {
+    setCurrentTeamId(teamId);
+    window.location.href = '/';
+  };
+  const changeLanguage = (lang: Language) => {
+    setLanguage(lang);
+    api.updateLanguage(lang).catch(() => undefined);
+    const emp = { ...employee, language: lang };
+    setEmployee(emp);
+    // persist cookie
+    import('@/lib/auth-client').then((m) => m.storeEmployee(emp));
+  };
+
+  const navLinks = isAdmin
+    ? [{ href: '/admin', label: t('nav.admin') }]
+    : [
+        { href: '/', label: t('nav.tasks') },
+        ...(isManager
+          ? [
+              { href: '/employees', label: t('nav.employees') },
+              { href: '/tags', label: t('nav.tags') },
+            ]
+          : []),
+        { href: '/stats', label: t('nav.stats') },
+        { href: '/tickets', label: t('tickets.title') },
+      ];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">{t('appName')}</h1>
+    <div className="min-h-screen bg-slate-100">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
+          {/* Brand */}
+          <Link href={isAdmin ? '/admin' : '/'} className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">HR</span>
+            <span className="hidden text-base font-bold text-slate-900 sm:block">{t('appName')}</span>
+          </Link>
 
-          <div className="flex items-center gap-4">
-            {/* Team Switcher */}
-            {!isAdmin && employee.memberships.length > 1 && (
-              <select
-                value={currentMembership?.teamId || ''}
-                onChange={(e) => handleTeamChange(Number(e.target.value))}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+          {/* Team switcher */}
+          {!isAdmin && currentMembership && (
+            <div className="relative" ref={teamRef}>
+              <button
+                onClick={() => setTeamOpen((o) => !o)}
+                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm hover:bg-slate-50"
               >
-                {employee.memberships.map((m) => (
-                  <option key={m.teamId} value={m.teamId}>
-                    {m.teamName}
-                  </option>
-                ))}
-              </select>
-            )}
+                <span className="max-w-[10rem] truncate font-medium text-slate-800">{currentMembership.teamName}</span>
+                <Badge color={ROLE_COLOR[currentMembership.role]}>{t(`employees.roles.${currentMembership.role}`)}</Badge>
+                <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {teamOpen && (
+                <div className="animate-pop absolute left-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                  <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{t('team.switcher')}</div>
+                  {employee.memberships.map((m) => (
+                    <button
+                      key={m.teamId}
+                      onClick={() => switchTeam(m.teamId)}
+                      className={`flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-slate-50 ${
+                        m.teamId === currentMembership.teamId ? 'bg-brand-50' : ''
+                      }`}
+                    >
+                      <span className="truncate text-slate-800">{m.teamName}</span>
+                      <Badge color={ROLE_COLOR[m.role]}>{t(`employees.roles.${m.role}`)}</Badge>
+                    </button>
+                  ))}
+                  <Link
+                    href="/create-team"
+                    className="flex items-center gap-2 border-t border-slate-100 px-3 py-2 text-sm font-medium text-brand-600 hover:bg-slate-50"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    {t('team.new')}
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Notification Panel */}
-            <NotificationPanel />
+          <div className="flex-1" />
 
-            <span className="text-sm text-gray-600">{employee.fullName}</span>
-
-            <button
-              onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-700"
-            >
-              {t('nav.logout')}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-6">
-            <Link
-              href="/"
-              className={`py-3 border-b-2 ${
-                pathname === '/'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {t('nav.tasks')}
-            </Link>
-
-            {isManager && (
-              <>
-                <Link
-                  href="/employees"
-                  className={`py-3 border-b-2 ${
-                    pathname === '/employees'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  {t('nav.employees')}
-                </Link>
-
-                <Link
-                  href="/tags"
-                  className={`py-3 border-b-2 ${
-                    pathname === '/tags'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  {t('nav.tags')}
-                </Link>
-              </>
-            )}
-
-            <Link
-              href="/stats"
-              className={`py-3 border-b-2 ${
-                pathname === '/stats'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {t('nav.stats')}
-            </Link>
-
-            {isAdmin && (
-              <Link
-                href="/admin"
-                className={`py-3 border-b-2 ${
-                  pathname === '/admin'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+          {/* Language */}
+          <div className="flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
+            {(['EN', 'RU', 'UZ'] as Language[]).map((l) => (
+              <button
+                key={l}
+                onClick={() => changeLanguage(l)}
+                className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                  i18n.language === l ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                {t('nav.admin')}
-              </Link>
+                {l}
+              </button>
+            ))}
+          </div>
+
+          {!isAdmin && <NotificationPanel />}
+
+          {/* User menu */}
+          <div className="relative" ref={userRef}>
+            <button onClick={() => setUserOpen((o) => !o)} className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-slate-100">
+              <Avatar name={employee.fullName} size={8} />
+              <span className="hidden text-sm font-medium text-slate-700 md:block">{employee.fullName}</span>
+            </button>
+            {userOpen && (
+              <div className="animate-pop absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <p className="truncate text-sm font-semibold text-slate-900">{employee.fullName}</p>
+                  <p className="truncate text-xs text-slate-500">@{employee.username}</p>
+                </div>
+                <button onClick={() => { setPwOpen(true); setUserOpen(false); }} className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
+                  {t('account.changePassword')}
+                </button>
+                <button onClick={handleLogout} className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+                  {t('nav.logout')}
+                </button>
+              </div>
             )}
           </div>
         </div>
-      </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
+        {/* Nav tabs */}
+        <nav className="mx-auto max-w-7xl px-4">
+          <div className="flex gap-1 overflow-x-auto">
+            {navLinks.map((link) => {
+              const active = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                    active ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+
+      {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
     </div>
+  );
+}
+
+function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const [oldPassword, setOld] = useState('');
+  const [newPassword, setNew] = useState('');
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      await api.changePassword(oldPassword, newPassword);
+      setOk(true);
+      setTimeout(onClose, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={t('account.changePassword')} size="sm">
+      {ok ? (
+        <p className="py-4 text-center text-sm font-medium text-emerald-600">✓ {t('account.passwordChanged')}</p>
+      ) : (
+        <form onSubmit={submit} className="space-y-3">
+          <Field label={t('account.oldPassword')}>
+            <Input type="password" value={oldPassword} onChange={(e) => setOld(e.target.value)} required />
+          </Field>
+          <Field label={t('account.newPassword')}>
+            <Input type="password" value={newPassword} onChange={(e) => setNew(e.target.value)} required minLength={4} />
+          </Field>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="secondary" onClick={onClose}>{t('tasks.close')}</Button>
+            <Button type="submit" disabled={busy}>{t('account.changePassword')}</Button>
+          </div>
+        </form>
+      )}
+    </Modal>
   );
 }
