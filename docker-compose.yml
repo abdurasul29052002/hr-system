@@ -1,10 +1,10 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: hr-system-postgres
+    container_name: postgres_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME:-hrdb}
+      POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
@@ -12,7 +12,7 @@ services:
     networks:
       - hr-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,21 +29,18 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # Force the PostgreSQL profile and point the datasource at the postgres service.
-      # Everything else (credentials, JWT, S3, bot, CORS) comes from ./.env
       SPRING_PROFILES_ACTIVE: prod
-      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-hrdb}
     env_file:
       - ./.env
     ports:
-      - "8080:8080"
+      - "9090:9090"
     mem_limit: 1g
     volumes:
       - hr-data:/app/data
     networks:
       - hr-network
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/actuator/health"]
+      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/actuator/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
