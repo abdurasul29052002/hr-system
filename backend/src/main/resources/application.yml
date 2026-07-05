@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: file:./backend/.env[.properties]
   application:
     name: hr-backend
   datasource:
