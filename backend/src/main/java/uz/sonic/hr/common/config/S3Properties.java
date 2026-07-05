@@ -8,8 +8,8 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "app.s3")
 @Data
 public class S3Properties {
-    private boolean enabled = true;
-    private String region = "us-east-1";
+    private boolean enabled;
+    private String region;
     private String bucketName;
     private String accessKey;
     private String secretKey;
