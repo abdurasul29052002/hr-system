@@ -57,6 +57,8 @@ public abstract class AbstractPostgresIT {
     @Autowired
     protected MockMvc mockMvc;
 
-    @Autowired
-    protected ObjectMapper objectMapper;
+    // Spring Boot 4 (Spring 7) auto-configures a Jackson 3 (tools.jackson) ObjectMapper, so there is
+    // no com.fasterxml.jackson (Jackson 2) ObjectMapper bean to @Autowire. The ITs only use this to
+    // parse JSON responses (readTree), so a plain Jackson 2 mapper constructed here is enough.
+    protected final ObjectMapper objectMapper = new ObjectMapper();
 }
