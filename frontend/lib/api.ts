@@ -77,6 +77,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   me: () => request<Employee>('/api/auth/me'),
+  botInfo: () => request<{ enabled: boolean; username: string | null }>('/api/bot-info'),
   updateLanguage: (language: Language) =>
     request<Employee>('/api/auth/language', { method: 'POST', body: JSON.stringify({ language }) }),
   changePassword: (oldPassword: string, newPassword: string) =>

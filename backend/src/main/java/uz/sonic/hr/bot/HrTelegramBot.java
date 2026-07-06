@@ -194,9 +194,14 @@ public class HrTelegramBot extends TelegramLongPollingBot {
             }
         }
 
-        if (text.equals("/start")) {
+        if (text.equals("/start") || text.startsWith("/start ")) {
             session.state = State.NONE;
+            // Deep-link payload from https://t.me/<bot>?start=<code> arrives as "/start <code>".
+            String payload = text.length() > 7 ? text.substring(7).trim() : "";
             if (employee == null) {
+                if (!payload.isEmpty() && linkByDeepLink(chatId, session, payload)) {
+                    return;
+                }
                 sendLanguageChooser(chatId);
                 return;
             }
@@ -307,6 +312,29 @@ public class HrTelegramBot extends TelegramLongPollingBot {
         if (membership != null) {
             sendMenu(chatId, found, membership);
         }
+    }
+
+    /**
+     * One-tap linking via {@code /start <code>} (Telegram deep link). Unlike {@link #linkByCode},
+     * this skips the language chooser and uses the language the user picked on the web. Returns
+     * {@code false} (so the caller falls back to normal onboarding) when the code is unknown,
+     * inactive, or already bound to another Telegram account.
+     */
+    private boolean linkByDeepLink(Long chatId, Session session, String code) {
+        Employee found = employeeRepository.findByTelegramLinkCode(code.toUpperCase()).orElse(null);
+        if (found == null || !found.isActive() || found.getTelegramChatId() != null) {
+            return false;
+        }
+        found.setTelegramChatId(chatId);
+        employeeRepository.save(found);
+        session.state = State.NONE;
+        session.language = found.getLanguage();
+        send(chatId, BotMessages.get(found.getLanguage(), "linked", found.getFullName()), null);
+        TeamMembership membership = resolveMembership(chatId, found, found.getLanguage());
+        if (membership != null) {
+            sendMenu(chatId, found, membership);
+        }
+        return true;
     }
 
     // ---------------------------------------------------------------- callbacks

@@ -317,5 +317,28 @@
     "ctaSubtitle": "Ishini tiniqroq va tinchroq tizim bilan yuritayotgan jamoalarga qo'shiling.",
     "ctaButton": "Bepul akkaunt yarating",
     "footerTagline": "Zamonaviy jamoalar uchun vazifa boshqaruvi."
+  },
+  "telegram": {
+    "menuItem": "Telegram bot",
+    "reminderTitle": "Telegram'ni ulang",
+    "reminderText": "Vazifa bildirishnomalarini oling va ishni to'g'ridan-to'g'ri Telegram'da boshqaring.",
+    "connect": "Ulash",
+    "later": "Yashirish",
+    "title": "Telegram'ni ulash",
+    "connected": "Telegram ulandi",
+    "connectedHint": "Vazifa bildirishnomalarini Telegram'da olasiz va u yerda vazifalarni olib yoki tugatishingiz mumkin.",
+    "intro": "Vazifalarni oling, bildirishnoma oling va izoh yozing — jamoangiz allaqachon bo'lgan Telegram'da.",
+    "openBot": "Botni Telegram'da ochish",
+    "step1DeepLink": "«Botni Telegram'da ochish»ni bosing, so'ng chatda Start'ni bosing.",
+    "step2DeepLink": "Akkaunt avtomatik ulanadi — tayyor.",
+    "step1Manual": "Telegram'ni oching va HR bot bilan suhbatni boshlang.",
+    "step2Manual": "Akkauntni ulash uchun quyidagi kodni botga yuboring.",
+    "orUseCode": "Yoki shu kod bilan qo'lda ulang",
+    "yourCode": "Ulash kodingiz",
+    "copy": "Nusxalash",
+    "copied": "Nusxalandi!",
+    "iveConnected": "Uladim",
+    "checking": "Tekshirilmoqda…",
+    "stillNotLinked": "Hali ulanmagan — avval botda Start'ni bosing."
   }
 }

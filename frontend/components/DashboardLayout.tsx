@@ -15,6 +15,7 @@ import { setLanguage } from '@/lib/i18n';
 import { isManagerRole } from '@/lib/types';
 import type { Employee, Language, Role } from '@/lib/types';
 import NotificationPanel from './NotificationPanel';
+import TelegramConnect from './TelegramConnect';
 import { Avatar, Badge, Button, Field, Input, Modal } from './ui';
 import '@/lib/i18n';
 
@@ -44,6 +45,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [teamOpen, setTeamOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
+  const [tgOpen, setTgOpen] = useState(false);
 
   const teamRef = useClickOutside(() => setTeamOpen(false));
   const userRef = useClickOutside(() => setUserOpen(false));
@@ -178,6 +180,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <p className="truncate text-sm font-semibold text-slate-900">{employee.fullName}</p>
                   <p className="truncate text-xs text-slate-500">@{employee.username}</p>
                 </div>
+                {!isAdmin && (
+                  <button onClick={() => { setTgOpen(true); setUserOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
+                    <svg className="h-4 w-4 text-sky-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M21.94 4.36 18.9 19.1c-.23 1.02-.84 1.27-1.7.79l-4.7-3.47-2.27 2.18c-.25.25-.46.46-.94.46l.33-4.78L18.6 5.9c.38-.34-.08-.53-.6-.19L6.55 12.9l-4.66-1.46c-1.01-.32-1.03-1.01.21-1.5l18.22-7.02c.84-.31 1.58.2 1.32 1.44Z" /></svg>
+                    {t('telegram.menuItem')}
+                    {!employee.telegramLinked && <span className="ml-auto h-2 w-2 rounded-full bg-sky-500" />}
+                  </button>
+                )}
                 <button onClick={() => { setPwOpen(true); setUserOpen(false); }} className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
                   {t('account.changePassword')}
                 </button>
@@ -209,6 +218,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </nav>
       </header>
+
+      {!isAdmin && (
+        <TelegramConnect employee={employee} open={tgOpen} setOpen={setTgOpen} onEmployeeUpdate={setEmployee} />
+      )}
 
       <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
 

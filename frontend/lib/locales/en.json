@@ -317,5 +317,28 @@
     "ctaSubtitle": "Join teams already running their work with a calmer, clearer system.",
     "ctaButton": "Create your free account",
     "footerTagline": "Task management for modern teams."
+  },
+  "telegram": {
+    "menuItem": "Telegram bot",
+    "reminderTitle": "Connect Telegram",
+    "reminderText": "Get task notifications and manage your work right from Telegram.",
+    "connect": "Connect",
+    "later": "Dismiss",
+    "title": "Connect Telegram",
+    "connected": "Telegram connected",
+    "connectedHint": "You'll get task notifications in Telegram and can take or complete tasks there.",
+    "intro": "Take tasks, get notified and comment — right inside Telegram, where your team already is.",
+    "openBot": "Open bot in Telegram",
+    "step1DeepLink": "Tap “Open bot in Telegram”, then press Start in the chat.",
+    "step2DeepLink": "Your account links automatically — that's it.",
+    "step1Manual": "Open Telegram and start a chat with the HR bot.",
+    "step2Manual": "Send the code below to the bot to link your account.",
+    "orUseCode": "Or link manually with this code",
+    "yourCode": "Your linking code",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "iveConnected": "I've connected",
+    "checking": "Checking…",
+    "stillNotLinked": "Not linked yet — press Start in the bot first."
   }
 }
