@@ -30,8 +30,6 @@ public abstract class AbstractPostgresIT {
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        // application.yml reads these env placeholders with no defaults; supply dummies so the context
-        // boots without a real .env. @ServiceConnection still overrides the DB connection to the container.
         registry.add("APP_JWT_SECRET", () -> "integration-test-jwt-secret-key-with-min-32-characters");
         registry.add("APP_ADMIN_USERNAME", () -> "admin");
         registry.add("APP_ADMIN_PASSWORD", () -> "integration-test-admin-password");
@@ -56,9 +54,5 @@ public abstract class AbstractPostgresIT {
 
     @Autowired
     protected MockMvc mockMvc;
-
-    // Spring Boot 4 (Spring 7) auto-configures a Jackson 3 (tools.jackson) ObjectMapper, so there is
-    // no com.fasterxml.jackson (Jackson 2) ObjectMapper bean to @Autowire. The ITs only use this to
-    // parse JSON responses (readTree), so a plain Jackson 2 mapper constructed here is enough.
     protected final ObjectMapper objectMapper = new ObjectMapper();
 }
