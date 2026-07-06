@@ -33,6 +33,8 @@ public abstract class AbstractPostgresIT {
         // application.yml reads these env placeholders with no defaults; supply dummies so the context
         // boots without a real .env. @ServiceConnection still overrides the DB connection to the container.
         registry.add("APP_JWT_SECRET", () -> "integration-test-jwt-secret-key-with-min-32-characters");
+        registry.add("APP_ADMIN_USERNAME", () -> "admin");
+        registry.add("APP_ADMIN_PASSWORD", () -> "integration-test-admin-password");
         registry.add("CORS_ALLOWED_ORIGINS", () -> "http://localhost:3000");
         registry.add("DB_HOST", () -> "localhost");
         registry.add("DB_PORT", () -> "5432");
