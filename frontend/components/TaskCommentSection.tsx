@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { getStoredEmployee } from '@/lib/auth-client';
 import type { TaskComment, CommentRequest } from '@/lib/types';
 import MarkdownRenderer from './MarkdownRenderer';
+import { Avatar } from './ui';
 import '@/lib/i18n';
 
 interface TaskCommentSectionProps {
@@ -22,10 +23,9 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
   const [editContent, setEditContent] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
-  // Tab state for new comment
   const [newCommentTab, setNewCommentTab] = useState<'write' | 'preview'>('write');
-  // Tab state for edit (per comment)
   const [editTab, setEditTab] = useState<'write' | 'preview'>('write');
 
   const currentEmployee = getStoredEmployee();
@@ -33,6 +33,11 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
   useEffect(() => {
     loadComments();
   }, [taskId]);
+
+  // Keep the newest message in view, like a chat.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [comments.length]);
 
   const loadComments = async () => {
     try {
@@ -56,9 +61,7 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
       setNewComment('');
       setSelectedFiles([]);
       setNewCommentTab('write');
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to add comment');
     } finally {
@@ -68,19 +71,18 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    // Validate each file
-    const validFiles = files.filter(file => {
+    const validFiles = files.filter((file) => {
       if (file.size > 5 * 1024 * 1024) {
         alert(`${file.name}: File too large (max 5MB)`);
         return false;
       }
       return true;
     });
-    setSelectedFiles(prev => [...prev, ...validFiles]);
+    setSelectedFiles((prev) => [...prev, ...validFiles]);
   };
 
   const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleEdit = (comment: TaskComment) => {
@@ -91,7 +93,6 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
 
   const handleSaveEdit = async (commentId: number) => {
     if (!editContent.trim()) return;
-
     try {
       const request: CommentRequest = { content: editContent.trim() };
       const updated = await api.updateComment(commentId, request);
@@ -111,7 +112,6 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
 
   const handleDelete = async (commentId: number) => {
     if (!confirm(t('comments.delete') + '?')) return;
-
     try {
       await api.deleteComment(commentId);
       setComments(comments.filter((c) => c.id !== commentId));
@@ -120,278 +120,236 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
-    return date.toLocaleDateString();
+  const formatTime = (timestamp: string) => {
+    const d = new Date(timestamp);
+    const sameDay = d.toDateString() === new Date().toDateString();
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return sameDay ? time : `${d.toLocaleDateString([], { day: '2-digit', month: 'short' })} · ${time}`;
   };
 
-  if (loading) {
-    return <div className="text-center py-4">Loading comments...</div>;
-  }
-
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">
-        {t('comments.title')} ({comments.length})
+    <div className="space-y-3">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+        <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h8M8 14h5m-9 6l3-3h9a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v13z" />
+        </svg>
+        {t('comments.title')}
+        {comments.length > 0 && (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">{comments.length}</span>
+        )}
       </h3>
 
-      {/* Comment List */}
-      <div className="space-y-3 max-h-96 overflow-y-auto">
-        {comments.length === 0 ? (
-          <p className="text-gray-500 text-sm">{t('comments.empty')}</p>
+      {/* Chat canvas */}
+      <div className="max-h-[24rem] space-y-3 overflow-y-auto rounded-xl bg-slate-50 p-3">
+        {loading ? (
+          <p className="py-6 text-center text-sm text-slate-400">{t('common.loading')}</p>
+        ) : comments.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-center">
+            <svg className="h-8 w-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h8M8 14h5m-9 6l3-3h9a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v13z" />
+            </svg>
+            <p className="text-sm text-slate-400">{t('comments.empty')}</p>
+          </div>
         ) : (
-          comments.map((comment) => (
-            <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900">{comment.authorName}</span>
-                  <span className="text-xs text-gray-500">
-                    {formatTimestamp(comment.createdAt)}
-                    {comment.updatedAt && (
-                      <span className="ml-1">({t('comments.updated')})</span>
-                    )}
-                  </span>
-                </div>
+          comments.map((comment) => {
+            const mine = currentEmployee?.id === comment.authorId;
+            const editing = editingId === comment.id;
 
-                {currentEmployee?.id === comment.authorId && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(comment)}
-                      className="text-blue-600 hover:text-blue-700 text-sm"
-                    >
-                      {t('comments.edit')}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(comment.id)}
-                      className="text-red-600 hover:text-red-700 text-sm"
-                    >
-                      {t('comments.delete')}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {editingId === comment.id ? (
-                <div className="space-y-2">
-                  {/* Edit Tabs */}
-                  <div className="flex border-b border-gray-300">
-                    <button
-                      onClick={() => setEditTab('write')}
-                      className={`px-4 py-2 text-sm font-medium ${
-                        editTab === 'write'
-                          ? 'border-b-2 border-blue-600 text-blue-600'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      Write
-                    </button>
-                    <button
-                      onClick={() => setEditTab('preview')}
-                      className={`px-4 py-2 text-sm font-medium ${
-                        editTab === 'preview'
-                          ? 'border-b-2 border-blue-600 text-blue-600'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      Preview
-                    </button>
-                  </div>
-
+            if (editing) {
+              return (
+                <div key={comment.id} className="rounded-2xl border border-brand-200 bg-white p-2 shadow-sm">
+                  <TabToggle tab={editTab} onChange={setEditTab} t={t} />
                   {editTab === 'write' ? (
                     <textarea
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                      rows={5}
+                      className="mt-2 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                      rows={4}
                       placeholder="**Bold** *italic* `code` [link](url) @username"
                     />
                   ) : (
-                    <div className="min-h-[120px] p-3 border border-gray-300 rounded-md bg-white">
-                      {editContent.trim() ? (
-                        <MarkdownRenderer content={editContent} />
-                      ) : (
-                        <p className="text-gray-400 text-sm">Nothing to preview</p>
-                      )}
+                    <div className="mt-2 min-h-[80px] rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      {editContent.trim() ? <MarkdownRenderer content={editContent} /> : <p className="text-sm text-slate-400">—</p>}
                     </div>
                   )}
-
-                  <div className="flex gap-2">
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button onClick={handleCancelEdit} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100">
+                      {t('comments.cancel')}
+                    </button>
                     <button
                       onClick={() => handleSaveEdit(comment.id)}
-                      className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                      disabled={!editContent.trim()}
+                      className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
                     >
                       {t('comments.save')}
                     </button>
-                    <button
-                      onClick={handleCancelEdit}
-                      className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
-                    >
-                      {t('comments.cancel')}
-                    </button>
                   </div>
                 </div>
-              ) : (
-                <div>
-                  <div className="prose prose-sm max-w-none">
+              );
+            }
+
+            return (
+              <div key={comment.id} className={`group flex items-end gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
+                {!mine && <Avatar name={comment.authorName} size={8} />}
+
+                <div className={`flex min-w-0 max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                  {!mine && <span className="mb-0.5 px-1 text-xs font-semibold text-slate-600">{comment.authorName}</span>}
+
+                  <div
+                    className={`relative w-fit rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
+                      mine
+                        ? 'rounded-br-md bg-brand-100 text-slate-800'
+                        : 'rounded-bl-md border border-slate-200 bg-white text-slate-800'
+                    }`}
+                  >
                     <MarkdownRenderer content={comment.content} />
+
+                    {comment.attachments && comment.attachments.length > 0 && (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {comment.attachments.map((attachment) => (
+                          <a
+                            key={attachment.id}
+                            href={attachment.downloadUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`block overflow-hidden rounded-lg border ${
+                              mine ? 'border-brand-200 hover:border-brand-300' : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            {attachment.mimeType.startsWith('image/') ? (
+                              <img src={attachment.downloadUrl} alt={attachment.fileName} className="h-28 w-full object-cover" />
+                            ) : (
+                              <div className="flex items-center gap-2 p-2">
+                                <svg className="h-7 w-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-medium text-slate-700">{attachment.fileName}</p>
+                                  <p className="text-[11px] text-slate-500">{(attachment.fileSize / 1024).toFixed(1)} KB</p>
+                                </div>
+                              </div>
+                            )}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Comment Attachments */}
-                  {comment.attachments && comment.attachments.length > 0 && (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      {comment.attachments.map((attachment) => (
-                        <a
-                          key={attachment.id}
-                          href={attachment.downloadUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block border border-gray-200 rounded p-2 hover:bg-gray-50"
-                        >
-                          {attachment.mimeType.startsWith('image/') ? (
-                            <img
-                              src={attachment.downloadUrl}
-                              alt={attachment.fileName}
-                              className="w-full h-32 object-cover rounded"
-                            />
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{attachment.fileName}</p>
-                                <p className="text-xs text-gray-500">{(attachment.fileSize / 1024).toFixed(1)} KB</p>
-                              </div>
-                            </div>
-                          )}
-                        </a>
-                      ))}
-                    </div>
-                  )}
+                  <div className={`mt-0.5 flex items-center gap-2 px-1 ${mine ? 'flex-row-reverse' : ''}`}>
+                    <span className="text-[11px] text-slate-400" title={new Date(comment.createdAt).toLocaleString()}>
+                      {formatTime(comment.createdAt)}
+                      {comment.updatedAt && <span className="ml-1 italic">({t('comments.updated')})</span>}
+                    </span>
+                    {mine && (
+                      <span className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button onClick={() => handleEdit(comment)} title={t('comments.edit')} className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button onClick={() => handleDelete(comment.id)} title={t('comments.delete')} className="rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600">
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))
+              </div>
+            );
+          })
         )}
+        <div ref={endRef} />
       </div>
 
-      {/* Add Comment Form */}
-      <form onSubmit={handleSubmit} className="space-y-2">
-        {/* Tabs */}
-        <div className="flex border-b border-gray-300">
-          <button
-            type="button"
-            onClick={() => setNewCommentTab('write')}
-            className={`px-4 py-2 text-sm font-medium ${
-              newCommentTab === 'write'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Write
-          </button>
-          <button
-            type="button"
-            onClick={() => setNewCommentTab('preview')}
-            className={`px-4 py-2 text-sm font-medium ${
-              newCommentTab === 'preview'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Preview
-          </button>
-        </div>
-
-        {newCommentTab === 'write' ? (
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder={t('comments.addPlaceholder') + '\n\nMarkdown supported: **bold** *italic* `code` [link](url) @username'}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-            rows={5}
-            disabled={submitting}
-          />
-        ) : (
-          <div className="min-h-[120px] p-3 border border-gray-300 rounded-md bg-gray-50">
-            {newComment.trim() ? (
-              <MarkdownRenderer content={newComment} />
-            ) : (
-              <p className="text-gray-400 text-sm">Nothing to preview</p>
-            )}
+      {/* Composer */}
+      <form onSubmit={handleSubmit}>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/20">
+          <div className="flex items-center gap-1 border-b border-slate-100 px-2 py-1.5">
+            <TabToggle tab={newCommentTab} onChange={setNewCommentTab} t={t} />
+            <div className="flex-1" />
+            <input ref={fileInputRef} type="file" onChange={handleFileSelect} multiple accept="image/*" className="hidden" id="comment-file-input" />
+            <label htmlFor="comment-file-input" title={t('tasks.attachImages')} className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+              <span className="hidden sm:inline">{t('tasks.attachImages')}</span>
+            </label>
           </div>
-        )}
 
-        {/* File Upload */}
-        <div className="space-y-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            onChange={handleFileSelect}
-            multiple
-            accept="image/*"
-            className="hidden"
-            id="comment-file-input"
-          />
-          <label
-            htmlFor="comment-file-input"
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200 cursor-pointer"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-            </svg>
-            Attach images
-          </label>
+          {newCommentTab === 'write' ? (
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSubmit(e);
+              }}
+              placeholder={t('comments.addPlaceholder')}
+              className="max-h-40 min-h-[64px] w-full resize-y border-0 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-0"
+              rows={2}
+              disabled={submitting}
+            />
+          ) : (
+            <div className="min-h-[64px] px-3 py-2.5">
+              {newComment.trim() ? <MarkdownRenderer content={newComment} /> : <p className="text-sm text-slate-400">—</p>}
+            </div>
+          )}
 
-          {/* Selected Files */}
           {selectedFiles.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 px-3 pb-2">
               {selectedFiles.map((file, index) => (
-                <div key={index} className="flex items-center gap-2 px-2 py-1 bg-blue-50 text-blue-700 rounded text-sm">
-                  <span className="truncate max-w-[150px]">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(index)}
-                    className="text-blue-900 hover:text-red-600"
-                  >
-                    ×
-                  </button>
-                </div>
+                <span key={index} className="flex items-center gap-1.5 rounded-lg bg-brand-50 px-2 py-1 text-xs text-brand-700">
+                  <span className="max-w-[150px] truncate">{file.name}</span>
+                  <button type="button" onClick={() => removeFile(index)} className="text-brand-400 hover:text-red-600">×</button>
+                </span>
               ))}
             </div>
           )}
-        </div>
 
-        <button
-          type="submit"
-          disabled={submitting || !newComment.trim()}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? '...' : t('comments.submit')}
-        </button>
+          <div className="flex items-center justify-between border-t border-slate-100 px-3 py-1.5">
+            <span className="text-[11px] text-slate-400">{t('comments.markdownHint')}</span>
+            <button
+              type="submit"
+              disabled={submitting || !newComment.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.993.993 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z" />
+              </svg>
+              {submitting ? '…' : t('comments.submit')}
+            </button>
+          </div>
+        </div>
       </form>
+    </div>
+  );
+}
 
-      {/* Markdown Help */}
-      <details className="text-xs text-gray-600">
-        <summary className="cursor-pointer hover:text-gray-900">Markdown help</summary>
-        <div className="mt-2 space-y-1 pl-4">
-          <p><code>**bold**</code> → <strong>bold</strong></p>
-          <p><code>*italic*</code> → <em>italic</em></p>
-          <p><code>`code`</code> → <code className="bg-gray-100 px-1">code</code></p>
-          <p><code>[link](url)</code> → link</p>
-          <p><code>- list item</code> → bullet list</p>
-          <p><code>1. numbered</code> → numbered list</p>
-          <p><code>@username</code> → mention user</p>
-          <p><code>&gt; quote</code> → blockquote</p>
-        </div>
-      </details>
+/** Small Write / Preview segmented toggle shared by the composer and the edit box. */
+function TabToggle({
+  tab,
+  onChange,
+  t,
+}: {
+  tab: 'write' | 'preview';
+  onChange: (tab: 'write' | 'preview') => void;
+  t: (key: string) => string;
+}) {
+  return (
+    <div className="flex gap-0.5 rounded-lg bg-slate-100 p-0.5">
+      {(['write', 'preview'] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            tab === v ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          {t(`comments.${v}`)}
+        </button>
+      ))}
     </div>
   );
 }

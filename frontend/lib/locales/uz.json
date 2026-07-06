@@ -187,7 +187,10 @@
     "save": "Saqlash",
     "empty": "Hali izoh yo'q",
     "updated": "tahrirlangan",
-    "mentioned": "sizni eslatdi"
+    "mentioned": "sizni eslatdi",
+    "write": "Yozish",
+    "preview": "Ko'rish",
+    "markdownHint": "Markdown mumkin · @ orqali eslatma"
   },
   "tickets": {
     "title": "Murojaatlar",

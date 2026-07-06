@@ -187,7 +187,10 @@
     "save": "Save",
     "empty": "No comments yet",
     "updated": "edited",
-    "mentioned": "mentioned you"
+    "mentioned": "mentioned you",
+    "write": "Write",
+    "preview": "Preview",
+    "markdownHint": "Markdown supported · @ to mention"
   },
   "tickets": {
     "title": "Support Tickets",
