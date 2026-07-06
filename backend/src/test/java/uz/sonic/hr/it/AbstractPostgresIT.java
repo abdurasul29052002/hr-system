@@ -9,8 +9,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Base for integration tests: boots the full Spring context against a real PostgreSQL started by
@@ -21,12 +19,19 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers
 public abstract class AbstractPostgresIT {
 
-    @Container
+    // Singleton container: started ONCE here and shared across ALL *IT classes for the whole JVM run
+    // (Ryuk stops it at exit). Deliberately NOT @Testcontainers/@Container — those stop the container
+    // after each test class, but Spring caches the @SpringBootTest context across classes, so the
+    // reused Hikari pool would keep pointing at the previous (now-stopped) container's port and fail
+    // with "Connection refused". Starting it statically keeps its mapped port valid for the cached context.
     @ServiceConnection
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    static {
+        POSTGRES.start();
+    }
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
