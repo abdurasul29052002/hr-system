@@ -22,7 +22,9 @@ ENV JAVA_OPTS="-XX:+UseG1GC \
     -Djava.security.egd=file:/dev/./urandom"
 
 # busybox wget (alpine has no curl); non-2xx responses exit non-zero → container marked unhealthy.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
+# start-period is generous: on a small VPS Spring Boot 4 can take 2-3 min to boot, and the container
+# must not be flagged unhealthy while it is still legitimately starting.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=210s --retries=5 \
     CMD wget -q -O /dev/null http://localhost:9090/actuator/health || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

@@ -65,12 +65,15 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
             echo "Waiting for backend to become healthy..."
-            for i in $(seq 1 24); do
+            # This VPS is small: Spring Boot 4 + Hibernate can take 2-3 min to boot under memory
+            # pressure (context init alone ~30s). Poll for up to 5 min so a healthy-but-slow boot
+            # is not mistaken for a failure.
+            for i in $(seq 1 60); do
               if curl -fsS http://localhost:9090/actuator/health >/dev/null 2>&1; then
                 echo "Backend is healthy!"
                 exit 0
               fi
-              echo "Attempt $i/24 - not ready yet, retrying in 5s..."
+              echo "Attempt $i/60 - not ready yet, retrying in 5s..."
               sleep 5
             done
             echo "Backend failed health check — recent logs:"

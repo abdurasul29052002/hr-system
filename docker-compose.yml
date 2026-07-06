@@ -44,8 +44,10 @@ services:
       test: [ "CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/actuator/health" ]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 45s
+      retries: 5
+      # Small VPS: Spring Boot 4 + Hibernate can take 2-3 min to boot under memory pressure.
+      # Keep the container out of "unhealthy" while it is still legitimately starting.
+      start_period: 210s
 
 volumes:
   hr-postgres-data:
