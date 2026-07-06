@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import uz.sonic.hr.common.config.S3Properties;
@@ -55,6 +56,9 @@ public class StorageService {
             PutObjectRequest request = PutObjectRequest.builder()
                     .bucket(props.getBucketName())
                     .key(key)
+                    // Objects are served via a direct (unsigned) public URL — see publicUrl().
+                    // Mark each upload public-read so DigitalOcean Spaces / S3 serves it (default is private → 403).
+                    .acl(ObjectCannedACL.PUBLIC_READ)
                     .contentType(contentType)
                     .contentLength(file.getSize())
                     .build();

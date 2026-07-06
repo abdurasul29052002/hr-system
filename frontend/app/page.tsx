@@ -1,375 +1,235 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
-import DashboardLayout from '@/components/DashboardLayout';
-import { api } from '@/lib/api';
-import { getStoredEmployee, getCurrentMembership } from '@/lib/auth-client';
-import { isManagerRole } from '@/lib/types';
-import type { Member, Tag, Task, TaskPriority, TaskStatus } from '@/lib/types';
-import { Avatar, Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, PageLoader, Select, Textarea } from '@/components/ui';
-import TaskCommentSection from '@/components/TaskCommentSection';
-import TaskAttachmentSection from '@/components/TaskAttachmentSection';
+import { getToken, getStoredEmployee } from '@/lib/auth-client';
+import { setLanguage } from '@/lib/i18n';
+import type { Language } from '@/lib/types';
 import '@/lib/i18n';
 
-const COLUMNS: { status: TaskStatus; dot: string; key: string }[] = [
-  { status: 'OPEN', dot: 'bg-blue-500', key: 'tasks.open' },
-  { status: 'IN_PROGRESS', dot: 'bg-amber-500', key: 'tasks.inProgress' },
-  { status: 'TESTING', dot: 'bg-violet-500', key: 'tasks.testing' },
-  { status: 'DONE', dot: 'bg-emerald-500', key: 'tasks.done' },
-];
+const LANGS: Language[] = ['EN', 'RU', 'UZ'];
 
-const PRIO_COLOR: Record<TaskPriority, 'red' | 'amber' | 'slate'> = { HIGH: 'red', MEDIUM: 'amber', LOW: 'slate' };
+/* Inline stroke icons (Heroicons-style) so the page has no external asset dependencies. */
+const ICON: Record<string, React.ReactNode> = {
+  board: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v6h-4z" />,
+  teams: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-1a4 4 0 00-4-4h-1m-3 5H2v-1a4 4 0 014-4h6a4 4 0 014 4v1zm-4-11a3 3 0 11-6 0 3 3 0 016 0zm7 0a3 3 0 11-4 0" />,
+  stats: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 19V9m5 10V5m5 14v-7m5 7V11" />,
+  bot: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 10h.01M15 10h.01M12 3v3m-5 0h10a2 2 0 012 2v7a2 2 0 01-2 2h-4l-3 3v-3H7a2 2 0 01-2-2V8a2 2 0 012-2z" />,
+  comments: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h8M8 14h5m-9 6l3-3h9a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v13z" />,
+  reports: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h6l6 6v9a2 2 0 01-2 2zM13 3v6h6" />,
+};
 
-export default function TasksPage() {
-  const router = useRouter();
-  const { t } = useTranslation();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [mineOnly, setMineOnly] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [detailTask, setDetailTask] = useState<Task | null>(null);
-
-  const employee = getStoredEmployee();
-  const membership = getCurrentMembership(employee);
-  const isManager = isManagerRole(membership?.role);
-
-  const load = useCallback(async () => {
-    try {
-      setTasks(await api.tasks({ mine: mineOnly }));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [mineOnly]);
+export default function LandingPage() {
+  const { t, i18n } = useTranslation();
+  const [mounted, setMounted] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
-    if (employee?.admin) {
-      router.push('/admin');
-      return;
-    }
-    load();
-  }, [load, employee?.admin, router]);
+    setMounted(true);
+    const emp = getStoredEmployee();
+    setLoggedIn(!!getToken());
+    if (emp?.language) setLanguage(emp.language);
+  }, []);
 
-  useEffect(() => {
-    if (isManager) {
-      api.members().then(setMembers).catch(() => undefined);
-      api.tags().then(setTags).catch(() => undefined);
-    }
-  }, [isManager]);
-
-  const act = async (id: number, fn: () => Promise<unknown>) => {
-    try {
-      await fn();
-      await load();
-      setDetailTask(null);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Error');
-    }
-  };
-
-  const cancelled = tasks.filter((t) => t.status === 'CANCELLED');
-
-  if (loading) {
-    return <DashboardLayout><PageLoader /></DashboardLayout>;
-  }
+  const features = ['board', 'teams', 'stats', 'bot', 'comments', 'reports'] as const;
+  const steps = ['one', 'two', 'three'] as const;
 
   return (
-    <DashboardLayout>
-      <PageHeader
-        title={t('tasks.board')}
-        actions={
-          <>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
-              <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} className="accent-brand-600" />
-              {t('tasks.mineOnly')}
-            </label>
-            {isManager && <Button onClick={() => setShowCreate(true)}>+ {t('tasks.newTask')}</Button>}
-          </>
-        }
-      />
+    <div className="min-h-screen bg-white text-slate-900">
+      {/* ---------------------------------------------------------------- Nav */}
+      <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white shadow-sm shadow-brand-600/30">HR</span>
+            <span className="text-base font-bold tracking-tight">{t('appName')}</span>
+          </Link>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {COLUMNS.map((col) => {
-          const items = tasks.filter((tk) => tk.status === col.status);
-          return (
-            <div key={col.status} className="rounded-xl bg-slate-200/40 p-3">
-              <div className="mb-3 flex items-center gap-2 px-1">
-                <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
-                <h3 className="text-sm font-semibold text-slate-700">{t(col.key)}</h3>
-                <span className="ml-auto rounded-full bg-white px-2 text-xs font-medium text-slate-500">{items.length}</span>
-              </div>
-              <div className="space-y-2.5">
-                {items.length === 0 ? (
-                  <p className="px-1 py-6 text-center text-xs text-slate-400">{t('tasks.empty')}</p>
-                ) : (
-                  items.map((task) => (
-                    <TaskCard key={task.id} task={task} onOpen={() => setDetailTask(task)} />
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+          <div className="flex-1" />
 
-      {cancelled.length > 0 && (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-slate-500">{t('tasks.cancelled')} ({cancelled.length})</summary>
-          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {cancelled.map((task) => <TaskCard key={task.id} task={task} onOpen={() => setDetailTask(task)} muted />)}
+          {/* Language switcher */}
+          <div className="flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
+            {LANGS.map((l) => (
+              <button
+                key={l}
+                onClick={() => setLanguage(l)}
+                className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                  mounted && i18n.language === l ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
           </div>
-        </details>
-      )}
 
-      {showCreate && (
-        <CreateTaskModal
-          members={members}
-          tags={tags}
-          onClose={() => setShowCreate(false)}
-          onCreated={() => { setShowCreate(false); load(); }}
-        />
-      )}
+          {loggedIn ? (
+            <Link href="/tasks" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700">
+              {t('landing.nav.dashboard')}
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 sm:block">
+                {t('landing.nav.login')}
+              </Link>
+              <Link href="/register" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700">
+                {t('landing.nav.getStarted')}
+              </Link>
+            </>
+          )}
+        </div>
+      </header>
 
-      {detailTask && (
-        <TaskDetailModal
-          task={detailTask}
-          isManager={isManager}
-          myId={employee?.id}
-          members={members}
-          onClose={() => setDetailTask(null)}
-          onAction={act}
-        />
-      )}
-    </DashboardLayout>
-  );
-}
+      {/* ---------------------------------------------------------------- Hero */}
+      <section className="relative overflow-hidden">
+        {/* decorative blurred blobs */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-brand-300/40 blur-3xl" />
+          <div className="absolute -top-10 right-0 h-80 w-80 rounded-full bg-violet-300/30 blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-50/60 to-white" />
+        </div>
 
-function TaskCard({ task, onOpen, muted }: { task: Task; onOpen: () => void; muted?: boolean }) {
-  const { t } = useTranslation();
-  return (
-    <button
-      onClick={onOpen}
-      className={`block w-full rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md ${muted ? 'opacity-60' : ''}`}
-    >
-      <div className="mb-1.5 flex items-start justify-between gap-2">
-        <h4 className="text-sm font-semibold leading-snug text-slate-900">{task.title}</h4>
-        <Badge color={PRIO_COLOR[task.priority]}>{t(`tasks.prio.${task.priority}`)}</Badge>
-      </div>
-      {task.tags.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1">
-          {task.tags.map((tag) => (
-            <span key={tag.id} className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white" style={{ background: tag.color || '#64748b' }}>
-              {tag.name}
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
+          <div className="animate-fade">
+            <span className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/70 px-3 py-1 text-xs font-semibold text-brand-700 shadow-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+              {t('landing.hero.badge')}
             </span>
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl">
+              {t('landing.hero.title')}
+            </h1>
+            <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
+              {t('landing.hero.subtitle')}
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href={loggedIn ? '/tasks' : '/register'}
+                className="rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/25 transition-all hover:-translate-y-0.5 hover:bg-brand-700"
+              >
+                {loggedIn ? t('landing.nav.dashboard') : t('landing.hero.ctaPrimary')}
+              </Link>
+              {!loggedIn && (
+                <Link href="/login" className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+                  {t('landing.hero.ctaSecondary')}
+                </Link>
+              )}
+            </div>
+            <p className="mt-4 text-sm text-slate-400">{t('landing.hero.note')}</p>
+          </div>
+
+          {/* Product mock: a mini kanban board */}
+          <div className="animate-pop lg:justify-self-end">
+            <KanbanMock t={t} />
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- Features */}
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{t('landing.featuresTitle')}</h2>
+          <p className="mt-3 text-lg text-slate-600">{t('landing.featuresSubtitle')}</p>
+        </div>
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((key) => (
+            <div key={key} className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-brand-200 hover:shadow-lg hover:shadow-brand-100/60">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 transition-colors group-hover:bg-brand-600 group-hover:text-white">
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">{ICON[key]}</svg>
+              </span>
+              <h3 className="mt-4 text-lg font-semibold text-slate-900">{t(`landing.features.${key}.title`)}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{t(`landing.features.${key}.desc`)}</p>
+            </div>
           ))}
         </div>
-      )}
-      <div className="flex items-center gap-2 text-xs text-slate-500">
-        {task.assigneeName ? (
-          <span className="flex items-center gap-1"><Avatar name={task.assigneeName} size={5} /> {task.assigneeName}</span>
-        ) : (
-          <span className="text-slate-400">{t('tasks.unassigned')}</span>
-        )}
-        {task.deadline && <span className="ml-auto">📅 {new Date(task.deadline).toLocaleDateString()}</span>}
-      </div>
-    </button>
-  );
-}
+      </section>
 
-function TaskActions({ task, isManager, myId, members, onAction }: {
-  task: Task; isManager: boolean; myId?: number; members: Member[];
-  onAction: (id: number, fn: () => Promise<unknown>) => void;
-}) {
-  const { t } = useTranslation();
-  const isMine = task.assigneeId != null && task.assigneeId === myId;
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {task.status === 'OPEN' && !isManager && !task.assigneeId && (
-        <Button size="sm" onClick={() => onAction(task.id, () => api.takeTask(task.id))}>{t('tasks.take')}</Button>
-      )}
-      {task.status === 'OPEN' && isManager && members.length > 0 && (
-        <Select
-          className="w-auto"
-          value=""
-          onChange={(e) => e.target.value && onAction(task.id, () => api.assignTask(task.id, Number(e.target.value)))}
-        >
-          <option value="">{t('tasks.assignTo')}…</option>
-          {members.map((m) => <option key={m.employeeId} value={m.employeeId}>{m.fullName}</option>)}
-        </Select>
-      )}
-      {task.status === 'IN_PROGRESS' && (isMine || isManager) && (
-        <Button size="sm" variant="success" onClick={() => onAction(task.id, () => api.completeTask(task.id))}>{t('tasks.complete')}</Button>
-      )}
-      {task.status === 'IN_PROGRESS' && isMine && (
-        <Button size="sm" variant="subtle" onClick={() => onAction(task.id, () => api.releaseTask(task.id))}>{t('tasks.release')}</Button>
-      )}
-      {task.status === 'TESTING' && isManager && (
-        <>
-          <Button size="sm" variant="success" onClick={() => onAction(task.id, () => api.approveTask(task.id))}>{t('tasks.approve')}</Button>
-          <Button size="sm" variant="subtle" onClick={() => onAction(task.id, () => api.rejectTask(task.id))}>{t('tasks.reject')}</Button>
-        </>
-      )}
-      {isManager && task.status !== 'DONE' && task.status !== 'CANCELLED' && (
-        <Button size="sm" variant="danger" onClick={() => onAction(task.id, () => api.cancelTask(task.id))}>{t('tasks.cancel')}</Button>
-      )}
+      {/* ---------------------------------------------------------------- How it works */}
+      <section className="border-y border-slate-200 bg-slate-50">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
+          <h2 className="text-center text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{t('landing.howTitle')}</h2>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {steps.map((key, i) => (
+              <div key={key} className="relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-base font-bold text-white shadow-sm shadow-brand-600/30">
+                  {i + 1}
+                </span>
+                <h3 className="mt-4 text-lg font-semibold text-slate-900">{t(`landing.steps.${key}.title`)}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{t(`landing.steps.${key}.desc`)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- CTA */}
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 to-brand-800 px-6 py-14 text-center shadow-xl shadow-brand-600/20 sm:px-12">
+          <div aria-hidden className="pointer-events-none absolute -top-16 -right-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-20 -left-10 h-64 w-64 rounded-full bg-brand-400/30 blur-2xl" />
+          <h2 className="relative text-3xl font-bold tracking-tight text-white sm:text-4xl">{t('landing.ctaTitle')}</h2>
+          <p className="relative mx-auto mt-3 max-w-xl text-lg text-brand-100">{t('landing.ctaSubtitle')}</p>
+          <Link
+            href={loggedIn ? '/tasks' : '/register'}
+            className="relative mt-8 inline-block rounded-xl bg-white px-7 py-3.5 text-sm font-semibold text-brand-700 shadow-lg transition-transform hover:-translate-y-0.5"
+          >
+            {loggedIn ? t('landing.nav.dashboard') : t('landing.ctaButton')}
+          </Link>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- Footer */}
+      <footer className="border-t border-slate-200">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6">
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">HR</span>
+            <span className="text-sm font-semibold text-slate-700">{t('appName')}</span>
+            <span className="hidden text-sm text-slate-400 sm:inline">· {t('landing.footerTagline')}</span>
+          </div>
+          <div className="flex items-center gap-5 text-sm text-slate-500">
+            <Link href="/login" className="hover:text-slate-900">{t('landing.nav.login')}</Link>
+            <Link href="/register" className="hover:text-slate-900">{t('landing.nav.getStarted')}</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function TaskDetailModal({ task, isManager, myId, members, onClose, onAction }: {
-  task: Task; isManager: boolean; myId?: number; members: Member[];
-  onClose: () => void; onAction: (id: number, fn: () => Promise<unknown>) => void;
-}) {
-  const { t } = useTranslation();
-  const [tab, setTab] = useState<'comments' | 'attachments'>('comments');
+/* A decorative mini kanban board — pure CSS, no data. */
+function KanbanMock({ t }: { t: (k: string) => string }) {
+  const columns = [
+    { key: 'tasks.open', dot: 'bg-blue-500', cards: [{ p: 'bg-red-400', w: 'w-3/4' }, { p: 'bg-amber-400', w: 'w-1/2' }] },
+    { key: 'tasks.inProgress', dot: 'bg-amber-500', cards: [{ p: 'bg-amber-400', w: 'w-2/3' }] },
+    { key: 'tasks.done', dot: 'bg-emerald-500', cards: [{ p: 'bg-slate-300', w: 'w-3/5' }, { p: 'bg-slate-300', w: 'w-1/2' }] },
+  ];
   return (
-    <Modal open onClose={onClose} title={task.title} size="lg">
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge color={PRIO_COLOR[task.priority]}>{t(`tasks.prio.${task.priority}`)}</Badge>
-          {task.tags.map((tag) => (
-            <span key={tag.id} className="rounded-full px-2 py-0.5 text-xs font-medium text-white" style={{ background: tag.color || '#64748b' }}>{tag.name}</span>
-          ))}
-        </div>
-        {task.description && <p className="whitespace-pre-wrap text-sm text-slate-700">{task.description}</p>}
-        <div className="grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3 text-sm sm:grid-cols-3">
-          <div><p className="text-xs text-slate-400">{t('tasks.createdBy')}</p><p className="text-slate-700">{task.createdByName}</p></div>
-          <div><p className="text-xs text-slate-400">{t('tasks.assignee')}</p><p className="text-slate-700">{task.assigneeName || t('tasks.unassigned')}</p></div>
-          {task.deadline && <div><p className="text-xs text-slate-400">{t('tasks.deadline')}</p><p className="text-slate-700">{new Date(task.deadline).toLocaleDateString()}</p></div>}
-        </div>
-
-        <TaskActions task={task} isManager={isManager} myId={myId} members={members} onAction={onAction} />
-
-        <div className="border-t border-slate-100 pt-3">
-          <div className="mb-3 flex gap-1 rounded-lg bg-slate-100 p-0.5">
-            {(['comments', 'attachments'] as const).map((tb) => (
-              <button
-                key={tb}
-                onClick={() => setTab(tb)}
-                className={`flex-1 rounded-md py-1.5 text-sm font-medium ${tab === tb ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500'}`}
-              >
-                {t(tb === 'comments' ? 'tasks.comments' : 'tasks.attachments')}
-              </button>
-            ))}
-          </div>
-          {tab === 'comments' ? <TaskCommentSection taskId={task.id} /> : <TaskAttachmentSection taskId={task.id} />}
-        </div>
+    <div className="w-full max-w-md rotate-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/50 ring-1 ring-slate-900/5">
+      <div className="mb-3 flex items-center gap-1.5 px-1">
+        <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+        <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+        <span className="ml-2 text-xs font-medium text-slate-400">{t('tasks.board')}</span>
       </div>
-    </Modal>
-  );
-}
-
-function CreateTaskModal({ members, tags, onClose, onCreated }: {
-  members: Member[]; tags: Tag[]; onClose: () => void; onCreated: () => void;
-}) {
-  const { t } = useTranslation();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
-  const [deadline, setDeadline] = useState('');
-  const [assigneeId, setAssigneeId] = useState<number | ''>('');
-  const [tagIds, setTagIds] = useState<number[]>([]);
-  const [files, setFiles] = useState<File[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const toggleTag = (id: number) => setTagIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      const task = await api.createTask({
-        title,
-        description: description || undefined,
-        priority,
-        deadline: deadline || null,
-        tagIds,
-        assigneeId: assigneeId === '' ? null : assigneeId,
-      });
-      for (const file of files) {
-        await api.uploadAttachment(task.id, file).catch(() => undefined);
-      }
-      onCreated();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error');
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal open onClose={onClose} title={t('tasks.newTask')} size="lg">
-      <form onSubmit={submit} className="space-y-3">
-        <Field label={t('tasks.title')}>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-        </Field>
-        <Field label={t('tasks.description')}>
-          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t('tasks.priority')}>
-            <Select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>
-              <option value="LOW">{t('tasks.prio.LOW')}</option>
-              <option value="MEDIUM">{t('tasks.prio.MEDIUM')}</option>
-              <option value="HIGH">{t('tasks.prio.HIGH')}</option>
-            </Select>
-          </Field>
-          <Field label={t('tasks.deadline')}>
-            <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
-          </Field>
-        </div>
-        <Field label={t('tasks.assignee')}>
-          <Select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : '')}>
-            <option value="">{t('tasks.openPool')}</option>
-            {members.map((m) => <option key={m.employeeId} value={m.employeeId}>{m.fullName}</option>)}
-          </Select>
-        </Field>
-        {tags.length > 0 && (
-          <Field label={t('tasks.tags')}>
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag) => {
-                const on = tagIds.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleTag(tag.id)}
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium text-white transition-opacity ${on ? 'opacity-100 ring-2 ring-offset-1 ring-slate-400' : 'opacity-50'}`}
-                    style={{ background: tag.color || '#64748b' }}
-                  >
-                    {on ? '✓ ' : ''}{tag.name}
-                  </button>
-                );
-              })}
+      <div className="grid grid-cols-3 gap-2">
+        {columns.map((col) => (
+          <div key={col.key} className="rounded-lg bg-slate-100/70 p-2">
+            <div className="mb-2 flex items-center gap-1.5 px-0.5">
+              <span className={`h-2 w-2 rounded-full ${col.dot}`} />
+              <span className="truncate text-[10px] font-semibold text-slate-500">{t(col.key)}</span>
             </div>
-          </Field>
-        )}
-        <Field label={t('tasks.attachImages')}>
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 hover:bg-slate-50">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 6h16v12H4z" /></svg>
-            {t('tasks.attachImages')}
-            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setFiles(Array.from(e.target.files || []))} />
-          </label>
-          {files.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {files.map((f, i) => (
-                <span key={i} className="rounded-md bg-brand-50 px-2 py-1 text-xs text-brand-700">{f.name}</span>
+            <div className="space-y-1.5">
+              {col.cards.map((c, i) => (
+                <div key={i} className="rounded-md border border-slate-200 bg-white p-2 shadow-sm">
+                  <div className="mb-1.5 flex items-center gap-1">
+                    <span className={`h-1.5 w-1.5 rounded-full ${c.p}`} />
+                    <span className={`h-1.5 ${c.w} rounded-full bg-slate-200`} />
+                  </div>
+                  <span className="block h-3 w-3 rounded-full bg-gradient-to-br from-brand-400 to-brand-600" />
+                </div>
               ))}
             </div>
-          )}
-        </Field>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="submit" disabled={busy}>{busy ? t('common.saving') : t('common.create')}</Button>
-        </div>
-      </form>
-    </Modal>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

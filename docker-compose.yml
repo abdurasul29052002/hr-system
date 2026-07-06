@@ -1,11 +1,11 @@
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
     container_name: postgres_db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - hr-postgres-data:/var/lib/postgresql/data
@@ -26,21 +26,22 @@ services:
     container_name: hr-system-backend
     restart: unless-stopped
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # In the compose network the DB host is the `db` service name, not localhost.
+      DB_HOST: db
+      DB_PORT: "5432"
     env_file:
       - ./.env
     ports:
       - "9090:9090"
     mem_limit: 1g
-    volumes:
-      - hr-data:/app/data
     networks:
       - hr-network
     healthcheck:
-      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/actuator/health" ]
+      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/actuator/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -48,8 +49,6 @@ services:
 
 volumes:
   hr-postgres-data:
-    driver: local
-  hr-data:
     driver: local
 
 networks:

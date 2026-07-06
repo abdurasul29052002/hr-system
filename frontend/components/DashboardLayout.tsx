@@ -74,7 +74,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
   const switchTeam = (teamId: number) => {
     setCurrentTeamId(teamId);
-    window.location.href = '/';
+    window.location.href = '/tasks';
   };
   const changeLanguage = (lang: Language) => {
     setLanguage(lang);
@@ -88,7 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navLinks = isAdmin
     ? [{ href: '/admin', label: t('nav.admin') }]
     : [
-        { href: '/', label: t('nav.tasks') },
+        { href: '/tasks', label: t('nav.tasks') },
         ...(isManager
           ? [
               { href: '/employees', label: t('nav.employees') },
@@ -104,7 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
           {/* Brand */}
-          <Link href={isAdmin ? '/admin' : '/'} className="flex items-center gap-2">
+          <Link href={isAdmin ? '/admin' : '/tasks'} className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">HR</span>
             <span className="hidden text-base font-bold text-slate-900 sm:block">{t('appName')}</span>
           </Link>

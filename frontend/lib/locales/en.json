@@ -254,5 +254,68 @@
     "none": "—",
     "search": "Search",
     "back": "Back"
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "login": "Sign in",
+      "getStarted": "Get started",
+      "dashboard": "Go to dashboard"
+    },
+    "hero": {
+      "badge": "Task management for teams",
+      "title": "Run your team's work in one calm place",
+      "subtitle": "Assign tasks, track them on a kanban board, see who's doing what, and get monthly reports — with a Telegram bot your team already lives in.",
+      "ctaPrimary": "Get started — free",
+      "ctaSecondary": "Sign in",
+      "note": "No credit card. Set up your team in minutes."
+    },
+    "featuresTitle": "Everything your team needs to ship work",
+    "featuresSubtitle": "From the first task to the monthly report — in one place.",
+    "features": {
+      "board": {
+        "title": "Kanban board",
+        "desc": "Open → In progress → In review → Done. Move work forward and see the whole picture at a glance."
+      },
+      "teams": {
+        "title": "Teams & roles",
+        "desc": "Leaders, managers and members — each with the right permissions. One account, many teams."
+      },
+      "stats": {
+        "title": "Live statistics",
+        "desc": "Who's working on what right now, on-time rates, a monthly timeline and a task-distribution overview."
+      },
+      "bot": {
+        "title": "Telegram bot",
+        "desc": "Take, complete and get notified about tasks right inside Telegram — where your team already is."
+      },
+      "comments": {
+        "title": "Comments & files",
+        "desc": "Discuss tasks with @mentions, markdown and image attachments stored on S3."
+      },
+      "reports": {
+        "title": "Monthly PDF report",
+        "desc": "Auto-generated: tasks done, overdue work and the employee of the month."
+      }
+    },
+    "howTitle": "Up and running in three steps",
+    "steps": {
+      "one": {
+        "title": "Create your team",
+        "desc": "Sign up and spin up a team in seconds."
+      },
+      "two": {
+        "title": "Add members & assign",
+        "desc": "Invite people, give them a role and assign the first tasks."
+      },
+      "three": {
+        "title": "Track & report",
+        "desc": "Watch progress on the board and get a monthly PDF automatically."
+      }
+    },
+    "ctaTitle": "Ready to get your team organized?",
+    "ctaSubtitle": "Join teams already running their work with a calmer, clearer system.",
+    "ctaButton": "Create your free account",
+    "footerTagline": "Task management for modern teams."
   }
 }

@@ -24,7 +24,7 @@ export default function AdminPage() {
   const employee = getStoredEmployee();
 
   useEffect(() => {
-    if (!employee?.admin) { router.push('/'); return; }
+    if (!employee?.admin) { router.push('/tasks'); return; }
     Promise.all([api.adminTeams(), api.adminEmployees()])
       .then(([tm, emp]) => { setTeams(tm); setEmployees(emp); })
       .catch(console.error)

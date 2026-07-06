@@ -47,7 +47,7 @@ jobs:
         working-directory: ./frontend
         env:
           # Baked into the build only to satisfy the rewrite; real value is set in Vercel.
-          NEXT_PUBLIC_BACKEND_URL: http://localhost:8080
+          NEXT_PUBLIC_BACKEND_URL: http://localhost:9090
         run: |
           npm ci
           npm run build

@@ -254,5 +254,68 @@
     "none": "—",
     "search": "Qidirish",
     "back": "Orqaga"
+  },
+  "landing": {
+    "nav": {
+      "features": "Imkoniyatlar",
+      "login": "Kirish",
+      "getStarted": "Boshlash",
+      "dashboard": "Ilovaga o'tish"
+    },
+    "hero": {
+      "badge": "Jamoalar uchun vazifa boshqaruvi",
+      "title": "Jamoangiz ishi — bitta tinch joyda",
+      "subtitle": "Vazifalarni taqsimlang, kanban doskada kuzating, kim nima qilayotganini ko'ring va oylik hisobotlar oling — jamoangiz allaqachon ishlatadigan Telegram bot bilan.",
+      "ctaPrimary": "Boshlash — bepul",
+      "ctaSecondary": "Kirish",
+      "note": "Karta shart emas. Jamoangizni bir necha daqiqada sozlang."
+    },
+    "featuresTitle": "Jamoangizga kerak bo'lgan hamma narsa",
+    "featuresSubtitle": "Birinchi vazifadan oylik hisobotgacha — bitta joyda.",
+    "features": {
+      "board": {
+        "title": "Kanban doska",
+        "desc": "Ochiq → Jarayonda → Tekshiruvda → Bajarildi. Ishni oldinga suring va butun manzarani ko'ring."
+      },
+      "teams": {
+        "title": "Jamoalar va rollar",
+        "desc": "Rahbarlar, menejerlar va a'zolar — har biriga mos huquqlar. Bitta akkaunt, ko'p jamoa."
+      },
+      "stats": {
+        "title": "Jonli statistika",
+        "desc": "Kim hozir nima ustida ishlayapti, muddatida bajarish foizi, oylik timeline va vazifalar taqsimoti."
+      },
+      "bot": {
+        "title": "Telegram bot",
+        "desc": "Vazifalarni oling, tugating va bildirishnomalarni to'g'ridan-to'g'ri Telegram'da oling."
+      },
+      "comments": {
+        "title": "Izohlar va fayllar",
+        "desc": "Vazifalarni @eslatma, markdown va S3'dagi rasm ilovalari bilan muhokama qiling."
+      },
+      "reports": {
+        "title": "Oylik PDF hisobot",
+        "desc": "Avtomatik: bajarilgan, kechikkan ishlar va oyning eng yaxshi ishchisi."
+      }
+    },
+    "howTitle": "Uch qadamda ishga tushiring",
+    "steps": {
+      "one": {
+        "title": "Jamoa yarating",
+        "desc": "Ro'yxatdan o'ting va soniyalarda jamoa oching."
+      },
+      "two": {
+        "title": "A'zolar qo'shing",
+        "desc": "Odamlarni taklif qiling, rol bering va birinchi vazifalarni tayinlang."
+      },
+      "three": {
+        "title": "Kuzating va hisobot oling",
+        "desc": "Doskada jarayonni kuzating va oylik PDF hisobotni avtomatik oling."
+      }
+    },
+    "ctaTitle": "Jamoangizni tartibga solishga tayyormisiz?",
+    "ctaSubtitle": "Ishini tiniqroq va tinchroq tizim bilan yuritayotgan jamoalarga qo'shiling.",
+    "ctaButton": "Bepul akkaunt yarating",
+    "footerTagline": "Zamonaviy jamoalar uchun vazifa boshqaruvi."
   }
 }

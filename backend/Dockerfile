@@ -8,7 +8,7 @@ WORKDIR /app
 # The executable Spring Boot JAR is built by CI (./mvnw package) and copied in as app.jar.
 COPY app.jar /app/app.jar
 
-EXPOSE 8080
+EXPOSE 9090
 
 # Production JVM tuning: container-aware heap, G1GC, fail-fast on OOM with a heap dump.
 ENV JAVA_OPTS="-XX:+UseG1GC \
@@ -23,6 +23,6 @@ ENV JAVA_OPTS="-XX:+UseG1GC \
 
 # busybox wget (alpine has no curl); non-2xx responses exit non-zero → container marked unhealthy.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
-    CMD wget -q -O /dev/null http://localhost:8080/actuator/health || exit 1
+    CMD wget -q -O /dev/null http://localhost:9090/actuator/health || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

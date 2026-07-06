@@ -1,6 +1,6 @@
 spring:
   config:
-    import: file:./backend/.env[.properties]
+    import: optional:file:./backend/.env[.properties]
   application:
     name: hr-backend
   datasource:
@@ -12,6 +12,8 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
   servlet:
     multipart:
       enabled: true
@@ -20,6 +22,10 @@ spring:
 
 server:
   port: 9090
+
+logging:
+  level:
+    org.springframework.aop.framework.CglibAopProxy: error
 
 management:
   endpoints:
@@ -36,6 +42,9 @@ app:
   jwt:
     secret: ${APP_JWT_SECRET}
     expiration-hours: 72
+  admin:
+    username: ${APP_ADMIN_USERNAME}
+    password: ${APP_ADMIN_PASSWORD}
   bot:
     token: ${HR_BOT_TOKEN:}
     username: ${HR_BOT_USERNAME:}

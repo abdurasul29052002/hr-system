@@ -22,7 +22,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { if (getToken()) router.push('/'); }, [router]);
+  useEffect(() => { if (getToken()) router.push('/tasks'); }, [router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

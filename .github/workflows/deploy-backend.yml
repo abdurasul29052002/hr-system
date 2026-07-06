@@ -66,7 +66,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
             echo "Waiting for backend to become healthy..."
             for i in $(seq 1 24); do
-              if curl -fsS http://localhost:8080/actuator/health >/dev/null 2>&1; then
+              if curl -fsS http://localhost:9090/actuator/health >/dev/null 2>&1; then
                 echo "Backend is healthy!"
                 exit 0
               fi

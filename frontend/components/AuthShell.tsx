@@ -26,5 +26,5 @@ export function postAuthDestination(employee: { admin: boolean; memberships: unk
     return `/join/${pending}`;
   }
   if (employee.admin) return '/admin';
-  return employee.memberships.length > 0 ? '/' : '/create-team';
+  return employee.memberships.length > 0 ? '/tasks' : '/create-team';
 }

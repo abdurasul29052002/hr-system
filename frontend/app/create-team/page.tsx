@@ -30,7 +30,7 @@ export default function CreateTeamPage() {
       const updated = await api.me();
       storeEmployee(updated);
       setCurrentTeamId(team.teamId);
-      window.location.href = '/';
+      window.location.href = '/tasks';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create team');
       setLoading(false);
@@ -45,7 +45,7 @@ export default function CreateTeamPage() {
         <Field label={t('team.name')}><Input value={teamName} onChange={(e) => setTeamName(e.target.value)} required autoFocus /></Field>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <Button type="submit" disabled={loading} className="w-full">{loading ? '…' : t('team.createSubmit')}</Button>
-        <Button type="button" variant="ghost" className="w-full" onClick={hasTeams ? () => router.push('/') : logout}>
+        <Button type="button" variant="ghost" className="w-full" onClick={hasTeams ? () => router.push('/tasks') : logout}>
           {hasTeams ? t('common.back') : t('nav.logout')}
         </Button>
       </form>

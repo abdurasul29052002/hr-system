@@ -35,9 +35,10 @@ cd /opt/hr-system
 
 ```bash
 cat > .env << 'EOF'
-# PostgreSQL (backend + postgres service uchun umumiy)
+# PostgreSQL (backend + postgres service uchun umumiy).
+# DB_HOST=db va DB_PORT=5432 ni compose avtomatik beradi — bu yerda kerak emas.
 DB_NAME=hrdb
-DB_USERNAME=hruser
+DB_USER=hruser
 DB_PASSWORD=CHANGE_THIS_PASSWORD
 
 # Security
@@ -45,12 +46,14 @@ APP_JWT_SECRET=CHANGE_THIS_TO_VERY_LONG_RANDOM_STRING
 APP_ADMIN_USERNAME=admin
 APP_ADMIN_PASSWORD=CHANGE_THIS_PASSWORD
 
-# S3 file storage (attachments) — MAJBURIY, aks holda fayl yuklash ishlamaydi
+# S3 file storage (attachments) — MAJBURIY, hammasi to'ldirilishi shart (default yo'q).
+# AWS uchun S3_ENDPOINT ni bo'sh qoldiring; DigitalOcean Spaces / MinIO uchun URL bering.
 S3_ENABLED=true
 S3_REGION=us-east-1
 S3_BUCKET_NAME=your-bucket-name
 S3_ACCESS_KEY=your-access-key
 S3_SECRET_KEY=your-secret-key
+S3_ENDPOINT=
 
 # CORS - Vercel frontend URL'ini qo'shing
 CORS_ALLOWED_ORIGINS=https://your-app.vercel.app,http://localhost:3000
@@ -61,7 +64,9 @@ HR_BOT_USERNAME=
 EOF
 ```
 
-> `docker-compose.yml` PostgreSQL (`postgres:16`) service'ini o'z ichiga oladi — alohida DB o'rnatish shart emas. Ma'lumot `hr-postgres-data` volume'ida saqlanadi.
+> `docker-compose.yml` PostgreSQL (`postgres:16`) service'ini o'z ichiga oladi — alohida DB o'rnatish shart emas. Ma'lumot `hr-postgres-data` volume'ida saqlanadi. Backend **9090** portда ishlaydi.
+>
+> ⚠️ **Schema:** `application.yml` da `ddl-auto: validate` — Hibernate jadvallarni **yaratmaydi**, faqat tekshiradi. Bo'sh (yangi) PostgreSQL bilan birinchi ishga tushirishda jadvallar bo'lmagani uchun app ishga tushmaydi. Birinchi marta schema yaratish uchun vaqtincha `ddl-auto: update` qiling (yoki Flyway/Liquibase qo'shing), keyin `validate` ga qaytaring.
 
 3. **GitHub Secrets sozlang:**
 
@@ -83,7 +88,7 @@ git push origin master
 # Yoki GitHub Actions'da "Run workflow"
 ```
 
-Backend: `http://your-server-ip:8080`
+Backend: `http://your-server-ip:9090`
 
 ---
 
@@ -104,7 +109,7 @@ Vercel Dashboard → Settings → Environment Variables → Add:
 
 | Name | Value |
 |------|-------|
-| `NEXT_PUBLIC_BACKEND_URL` | `http://your-server-ip:8080` yoki `https://api.yourdomain.com` |
+| `NEXT_PUBLIC_BACKEND_URL` | `http://your-server-ip:9090` yoki `https://api.yourdomain.com` |
 
 4. **Deploy:**
 
@@ -141,7 +146,7 @@ docker compose up -d
 
 ```bash
 # Backend health check
-curl http://your-server-ip:8080/actuator/health
+curl http://your-server-ip:9090/actuator/health
 
 # Frontend
 curl https://your-project.vercel.app

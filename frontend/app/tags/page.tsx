@@ -28,7 +28,7 @@ export default function TagsPage() {
   }, []);
 
   useEffect(() => {
-    if (!isManager) { router.push('/'); return; }
+    if (!isManager) { router.push('/tasks'); return; }
     load();
   }, [isManager, router, load]);
 

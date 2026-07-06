@@ -30,9 +30,26 @@ public abstract class AbstractPostgresIT {
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        // A valid (non-default) JWT secret and no S3 — this profile does not run ProdSecretGuard.
-        registry.add("app.jwt.secret", () -> "integration-test-jwt-secret-key-with-min-32-characters");
-        registry.add("app.s3.enabled", () -> "false");
+        // application.yml reads these env placeholders with no defaults; supply dummies so the context
+        // boots without a real .env. @ServiceConnection still overrides the DB connection to the container.
+        registry.add("APP_JWT_SECRET", () -> "integration-test-jwt-secret-key-with-min-32-characters");
+        registry.add("CORS_ALLOWED_ORIGINS", () -> "http://localhost:3000");
+        registry.add("DB_HOST", () -> "localhost");
+        registry.add("DB_PORT", () -> "5432");
+        registry.add("DB_NAME", () -> "test");
+        registry.add("DB_USER", () -> "test");
+        registry.add("DB_PASSWORD", () -> "test");
+        registry.add("S3_ENABLED", () -> "false");
+        registry.add("S3_REGION", () -> "us-east-1");
+        registry.add("S3_BUCKET_NAME", () -> "test-bucket");
+        registry.add("S3_ACCESS_KEY", () -> "test");
+        registry.add("S3_SECRET_KEY", () -> "test");
+        registry.add("S3_ENDPOINT", () -> "");
+        // Keep the Telegram bot off in tests even if a local backend/.env is imported.
+        registry.add("app.bot.token", () -> "");
+        registry.add("app.bot.username", () -> "");
+        // Real flow: Liquibase creates the schema on the fresh container, Hibernate then validates it.
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
     }
 
     @Autowired

@@ -34,7 +34,7 @@ export default function JoinPage() {
       const updated = await api.me();
       storeEmployee(updated);
       setCurrentTeamId(team.teamId);
-      window.location.href = '/';
+      window.location.href = '/tasks';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join');
       setJoining(false);
@@ -54,18 +54,18 @@ export default function JoinPage() {
       ) : error ? (
         <div className="space-y-3 text-center">
           <p className="text-sm text-red-600">{error}</p>
-          <Button className="w-full" onClick={() => router.push('/')}>{t('common.back')}</Button>
+          <Button className="w-full" onClick={() => router.push('/tasks')}>{t('common.back')}</Button>
         </div>
       ) : info?.alreadyMember ? (
         <div className="space-y-3 text-center">
           <p className="text-sm text-slate-600">{t('join.alreadyMember', { team: info.teamName })}</p>
-          <Button className="w-full" onClick={() => router.push('/')}>{t('common.back')}</Button>
+          <Button className="w-full" onClick={() => router.push('/tasks')}>{t('common.back')}</Button>
         </div>
       ) : info ? (
         <div className="space-y-4 text-center">
           <p className="text-sm text-slate-600">{t('join.hint', { team: info.teamName, role: t(`employees.roles.${info.role}`) })}</p>
           <Button className="w-full" onClick={join} disabled={joining}>{joining ? '…' : t('join.submit')}</Button>
-          <Button variant="ghost" className="w-full" onClick={() => router.push('/')}>{t('common.back')}</Button>
+          <Button variant="ghost" className="w-full" onClick={() => router.push('/tasks')}>{t('common.back')}</Button>
         </div>
       ) : null}
     </AuthShell>

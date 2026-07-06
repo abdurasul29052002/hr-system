@@ -1,0 +1,1158 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1783274455559-1
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_admins
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: full_name
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: username
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: password
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: language
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: active
+                  type: BOOLEAN
+              - column:
+                  name: role
+                  type: SMALLINT
+              - column:
+                  name: created_at
+                  type: DATETIME
+              - column:
+                  name: updated_at
+                  type: DATETIME
+            tableName: admins
+  - changeSet:
+      id: 1783274455559-2
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_comment_attachments
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: comment_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: file_name
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: file_path
+                  type: VARCHAR(500)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: file_size
+                  type: BIGINT
+              - column:
+                  name: mime_type
+                  type: VARCHAR(255)
+              - column:
+                  name: uploaded_at
+                  type: DATETIME
+            tableName: comment_attachments
+  - changeSet:
+      id: 1783274455559-3
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_comment_mentions
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: comment_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: mentioned_employee_id
+                  type: BIGINT
+            tableName: comment_mentions
+  - changeSet:
+      id: 1783274455559-4
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_employees
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: full_name
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: username
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: password
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: language
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: active
+                  type: BOOLEAN
+              - column:
+                  name: role
+                  type: SMALLINT
+              - column:
+                  name: created_at
+                  type: DATETIME
+              - column:
+                  name: updated_at
+                  type: DATETIME
+              - column:
+                  name: phone
+                  type: VARCHAR(255)
+              - column:
+                  name: telegram_chat_id
+                  type: BIGINT
+              - column:
+                  name: telegram_link_code
+                  type: VARCHAR(255)
+              - column:
+                  name: bot_team_id
+                  type: BIGINT
+            tableName: employees
+  - changeSet:
+      id: 1783274455559-5
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_member_labels
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: name
+                  type: VARCHAR(255)
+              - column:
+                  name: color
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: team_id
+                  type: BIGINT
+            tableName: member_labels
+  - changeSet:
+      id: 1783274455559-6
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_membership_labels
+                  name: label_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_membership_labels
+                  name: membership_id
+                  type: BIGINT
+            tableName: membership_labels
+  - changeSet:
+      id: 1783274455559-7
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_notifications
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: employee_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: type
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: title
+                  type: VARCHAR(255)
+              - column:
+                  name: message
+                  type: VARCHAR(1000)
+              - column:
+                  name: related_task_id
+                  type: BIGINT
+              - column:
+                  name: related_comment_id
+                  type: BIGINT
+              - column:
+                  name: related_invite_id
+                  type: BIGINT
+              - column:
+                  name: actor_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: is_read
+                  type: BOOLEAN
+              - column:
+                  name: created_at
+                  type: DATETIME
+            tableName: notifications
+  - changeSet:
+      id: 1783274455559-8
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_tags
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: name
+                  type: VARCHAR(255)
+              - column:
+                  name: color
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: team_id
+                  type: BIGINT
+            tableName: tags
+  - changeSet:
+      id: 1783274455559-9
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_task_attachments
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: task_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: file_name
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: file_path
+                  type: VARCHAR(500)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: file_size
+                  type: BIGINT
+              - column:
+                  name: mime_type
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: uploaded_by
+                  type: BIGINT
+              - column:
+                  name: uploaded_at
+                  type: DATETIME
+            tableName: task_attachments
+  - changeSet:
+      id: 1783274455559-10
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_task_comments
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: task_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: author_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: content
+                  type: VARCHAR(4000)
+              - column:
+                  name: created_at
+                  type: DATETIME
+              - column:
+                  name: updated_at
+                  type: DATETIME
+              - column:
+                  name: telegram_message_id
+                  type: BIGINT
+            tableName: task_comments
+  - changeSet:
+      id: 1783274455559-11
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_task_tags
+                  name: tag_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_task_tags
+                  name: task_id
+                  type: BIGINT
+            tableName: task_tags
+  - changeSet:
+      id: 1783274455559-12
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_tasks
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: title
+                  type: VARCHAR(255)
+              - column:
+                  name: description
+                  type: VARCHAR(4000)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: priority
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: status
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: team_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: created_by_id
+                  type: BIGINT
+              - column:
+                  name: assignee_id
+                  type: BIGINT
+              - column:
+                  name: deadline
+                  type: DATE
+              - column:
+                  name: created_at
+                  type: DATETIME
+              - column:
+                  name: taken_at
+                  type: DATETIME
+              - column:
+                  name: submitted_at
+                  type: DATETIME
+              - column:
+                  name: completed_at
+                  type: DATETIME
+            tableName: tasks
+  - changeSet:
+      id: 1783274455559-13
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_team_invites
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: token
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: team_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: role
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: created_by_id
+                  type: BIGINT
+              - column:
+                  name: created_at
+                  type: DATETIME
+              - column:
+                  name: expires_at
+                  type: DATETIME
+              - column:
+                  constraints:
+                    nullable: false
+                  name: revoked
+                  type: BOOLEAN
+            tableName: team_invites
+  - changeSet:
+      id: 1783274455559-14
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_team_memberships
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: employee_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: team_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: role
+                  type: VARCHAR(255)
+              - column:
+                  name: position
+                  type: VARCHAR(255)
+              - column:
+                  name: joined_at
+                  type: DATETIME
+            tableName: team_memberships
+  - changeSet:
+      id: 1783274455559-15
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_teams
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: name
+                  type: VARCHAR(255)
+              - column:
+                  name: created_at
+                  type: DATETIME
+            tableName: teams
+  - changeSet:
+      id: 1783274455559-16
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_ticket_messages
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: ticket_id
+                  type: BIGINT
+              - column:
+                  name: sender_id
+                  type: BIGINT
+              - column:
+                  name: admin_sender_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: message
+                  type: VARCHAR(4000)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: is_admin_response
+                  type: BOOLEAN
+              - column:
+                  name: created_at
+                  type: DATETIME
+            tableName: ticket_messages
+  - changeSet:
+      id: 1783274455559-17
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_tickets
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: creator_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: subject
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: description
+                  type: VARCHAR(4000)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: type
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: priority
+                  type: VARCHAR(255)
+              - column:
+                  constraints:
+                    nullable: false
+                  name: status
+                  type: VARCHAR(255)
+              - column:
+                  name: created_at
+                  type: DATETIME
+              - column:
+                  name: updated_at
+                  type: DATETIME
+              - column:
+                  name: resolved_at
+                  type: DATETIME
+              - column:
+                  name: resolved_by
+                  type: BIGINT
+            tableName: tickets
+  - changeSet:
+      id: 1783274455559-18
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addUniqueConstraint:
+            columnNames: team_id, name
+            constraintName: uc_1953f30c6cc756280c04a7ea5
+            tableName: member_labels
+  - changeSet:
+      id: 1783274455559-19
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addUniqueConstraint:
+            columnNames: comment_id, mentioned_employee_id
+            constraintName: uc_551a8f5ab9af7e0fc89994c26
+            tableName: comment_mentions
+  - changeSet:
+      id: 1783274455559-20
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addUniqueConstraint:
+            columnNames: username
+            constraintName: uc_admins_username
+            tableName: admins
+  - changeSet:
+      id: 1783274455559-21
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addUniqueConstraint:
+            columnNames: team_id, name
+            constraintName: uc_aefa2f6e7828ada96556e4fb9
+            tableName: tags
+  - changeSet:
+      id: 1783274455559-22
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addUniqueConstraint:
+            columnNames: employee_id, team_id
+            constraintName: uc_bb97aec960d97ec199037840b
+            tableName: team_memberships
+  - changeSet:
+      id: 1783274455559-23
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addUniqueConstraint:
+            columnNames: telegram_chat_id
+            constraintName: uc_employees_telegramchatid
+            tableName: employees
+  - changeSet:
+      id: 1783274455559-24
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addUniqueConstraint:
+            columnNames: telegram_link_code
+            constraintName: uc_employees_telegramlinkcode
+            tableName: employees
+  - changeSet:
+      id: 1783274455559-25
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addUniqueConstraint:
+            columnNames: username
+            constraintName: uc_employees_username
+            tableName: employees
+  - changeSet:
+      id: 1783274455559-26
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addUniqueConstraint:
+            columnNames: token
+            constraintName: uc_team_invites_token
+            tableName: team_invites
+  - changeSet:
+      id: 1783274455559-27
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createIndex:
+            columns:
+              - column:
+                  name: employee_id
+              - column:
+                  name: is_read
+              - column:
+                  name: created_at
+            indexName: idx_notifications_employee
+            tableName: notifications
+  - changeSet:
+      id: 1783274455559-28
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createIndex:
+            columns:
+              - column:
+                  name: ticket_id
+              - column:
+                  name: created_at
+            indexName: idx_ticket_messages_ticket
+            tableName: ticket_messages
+  - changeSet:
+      id: 1783274455559-29
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createIndex:
+            columns:
+              - column:
+                  name: creator_id
+              - column:
+                  name: created_at
+            indexName: idx_tickets_creator
+            tableName: tickets
+  - changeSet:
+      id: 1783274455559-30
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createIndex:
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: created_at
+            indexName: idx_tickets_status
+            tableName: tickets
+  - changeSet:
+      id: 1783274455559-31
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: comment_id
+            baseTableName: comment_attachments
+            constraintName: FK_COMMENT_ATTACHMENTS_ON_COMMENT
+            referencedColumnNames: id
+            referencedTableName: task_comments
+  - changeSet:
+      id: 1783274455559-32
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: comment_id
+            baseTableName: comment_mentions
+            constraintName: FK_COMMENT_MENTIONS_ON_COMMENT
+            referencedColumnNames: id
+            referencedTableName: task_comments
+  - changeSet:
+      id: 1783274455559-33
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: mentioned_employee_id
+            baseTableName: comment_mentions
+            constraintName: FK_COMMENT_MENTIONS_ON_MENTIONED_EMPLOYEE
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-34
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: team_id
+            baseTableName: member_labels
+            constraintName: FK_MEMBER_LABELS_ON_TEAM
+            referencedColumnNames: id
+            referencedTableName: teams
+  - changeSet:
+      id: 1783274455559-35
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: actor_id
+            baseTableName: notifications
+            constraintName: FK_NOTIFICATIONS_ON_ACTOR
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-36
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: employee_id
+            baseTableName: notifications
+            constraintName: FK_NOTIFICATIONS_ON_EMPLOYEE
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-37
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: related_comment_id
+            baseTableName: notifications
+            constraintName: FK_NOTIFICATIONS_ON_RELATED_COMMENT
+            referencedColumnNames: id
+            referencedTableName: task_comments
+  - changeSet:
+      id: 1783274455559-38
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: related_invite_id
+            baseTableName: notifications
+            constraintName: FK_NOTIFICATIONS_ON_RELATED_INVITE
+            referencedColumnNames: id
+            referencedTableName: team_invites
+  - changeSet:
+      id: 1783274455559-39
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: related_task_id
+            baseTableName: notifications
+            constraintName: FK_NOTIFICATIONS_ON_RELATED_TASK
+            referencedColumnNames: id
+            referencedTableName: tasks
+  - changeSet:
+      id: 1783274455559-40
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: team_id
+            baseTableName: tags
+            constraintName: FK_TAGS_ON_TEAM
+            referencedColumnNames: id
+            referencedTableName: teams
+  - changeSet:
+      id: 1783274455559-41
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: assignee_id
+            baseTableName: tasks
+            constraintName: FK_TASKS_ON_ASSIGNEE
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-42
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: created_by_id
+            baseTableName: tasks
+            constraintName: FK_TASKS_ON_CREATEDBY
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-43
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: team_id
+            baseTableName: tasks
+            constraintName: FK_TASKS_ON_TEAM
+            referencedColumnNames: id
+            referencedTableName: teams
+  - changeSet:
+      id: 1783274455559-44
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: task_id
+            baseTableName: task_attachments
+            constraintName: FK_TASK_ATTACHMENTS_ON_TASK
+            referencedColumnNames: id
+            referencedTableName: tasks
+  - changeSet:
+      id: 1783274455559-45
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: uploaded_by
+            baseTableName: task_attachments
+            constraintName: FK_TASK_ATTACHMENTS_ON_UPLOADED_BY
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-46
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: author_id
+            baseTableName: task_comments
+            constraintName: FK_TASK_COMMENTS_ON_AUTHOR
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-47
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: task_id
+            baseTableName: task_comments
+            constraintName: FK_TASK_COMMENTS_ON_TASK
+            referencedColumnNames: id
+            referencedTableName: tasks
+  - changeSet:
+      id: 1783274455559-48
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: created_by_id
+            baseTableName: team_invites
+            constraintName: FK_TEAM_INVITES_ON_CREATEDBY
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-49
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: team_id
+            baseTableName: team_invites
+            constraintName: FK_TEAM_INVITES_ON_TEAM
+            referencedColumnNames: id
+            referencedTableName: teams
+  - changeSet:
+      id: 1783274455559-50
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: employee_id
+            baseTableName: team_memberships
+            constraintName: FK_TEAM_MEMBERSHIPS_ON_EMPLOYEE
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-51
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: team_id
+            baseTableName: team_memberships
+            constraintName: FK_TEAM_MEMBERSHIPS_ON_TEAM
+            referencedColumnNames: id
+            referencedTableName: teams
+  - changeSet:
+      id: 1783274455559-52
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: creator_id
+            baseTableName: tickets
+            constraintName: FK_TICKETS_ON_CREATOR
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-53
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: resolved_by
+            baseTableName: tickets
+            constraintName: FK_TICKETS_ON_RESOLVED_BY
+            referencedColumnNames: id
+            referencedTableName: admins
+  - changeSet:
+      id: 1783274455559-54
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: admin_sender_id
+            baseTableName: ticket_messages
+            constraintName: FK_TICKET_MESSAGES_ON_ADMIN_SENDER
+            referencedColumnNames: id
+            referencedTableName: admins
+  - changeSet:
+      id: 1783274455559-55
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: sender_id
+            baseTableName: ticket_messages
+            constraintName: FK_TICKET_MESSAGES_ON_SENDER
+            referencedColumnNames: id
+            referencedTableName: employees
+  - changeSet:
+      id: 1783274455559-56
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: ticket_id
+            baseTableName: ticket_messages
+            constraintName: FK_TICKET_MESSAGES_ON_TICKET
+            referencedColumnNames: id
+            referencedTableName: tickets
+  - changeSet:
+      id: 1783274455559-57
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: label_id
+            baseTableName: membership_labels
+            constraintName: fk_memlab_on_member_label
+            referencedColumnNames: id
+            referencedTableName: member_labels
+  - changeSet:
+      id: 1783274455559-58
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: membership_id
+            baseTableName: membership_labels
+            constraintName: fk_memlab_on_team_membership
+            referencedColumnNames: id
+            referencedTableName: team_memberships
+  - changeSet:
+      id: 1783274455559-59
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: tag_id
+            baseTableName: task_tags
+            constraintName: fk_task_tags_on_tag
+            referencedColumnNames: id
+            referencedTableName: tags
+  - changeSet:
+      id: 1783274455559-60
+      author: Abdurasul
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: task_id
+            baseTableName: task_tags
+            constraintName: fk_task_tags_on_task
+            referencedColumnNames: id
+            referencedTableName: tasks
+

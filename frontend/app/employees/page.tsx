@@ -56,7 +56,7 @@ export default function EmployeesPage() {
   }, []);
 
   useEffect(() => {
-    if (!isManager) { router.push('/'); return; }
+    if (!isManager) { router.push('/tasks'); return; }
     load();
   }, [isManager, router, load]);
 
