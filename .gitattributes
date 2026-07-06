@@ -1,0 +1,13 @@
+# Keep line endings stable across Windows dev and Linux CI runners.
+#
+# The Maven wrapper is executed by /bin/sh on GitHub's Ubuntu runners, so it
+# MUST be stored with LF endings. With CRLF the shebang becomes "#!/bin/sh\r"
+# and the runner looks for an interpreter literally named "/bin/sh\r", failing
+# with "./mvnw: cannot execute: required file not found" (exit 127).
+mvnw        text eol=lf
+*.sh        text eol=lf
+
+# Windows batch wrappers must stay CRLF.
+mvnw.cmd    text eol=crlf
+*.cmd       text eol=crlf
+*.bat       text eol=crlf
