@@ -23,7 +23,9 @@
     "name": "Team name",
     "createSubmit": "Create team",
     "new": "New team",
-    "switcher": "Team"
+    "switcher": "Team",
+    "delete": "Delete team",
+    "deleteConfirm": "Permanently delete \"{{team}}\" and all its tasks, comments and files? This cannot be undone."
   },
   "nav": {
     "tasks": "Tasks",

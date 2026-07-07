@@ -30,4 +30,12 @@ public class TeamController {
         Employee employee = currentUser.get();
         return teamService.membershipsOf(employee).stream().map(MyTeam::from).toList();
     }
+
+    /** Deletes a team and all of its data. Only a LEADER of that team may do this. */
+    @DeleteMapping("/{teamId}")
+    public void delete(@PathVariable Long teamId) {
+        TeamMembership membership = teamService.requireMembership(currentUser.get().getId(), teamId);
+        TeamService.requireLeader(membership);
+        teamService.deleteTeam(teamId);
+    }
 }

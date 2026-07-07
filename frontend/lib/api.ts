@@ -88,6 +88,7 @@ export const api = {
 
   createTeam: (name: string) => request<MyTeam>('/api/teams', { method: 'POST', body: JSON.stringify({ name }) }),
   myTeams: () => request<MyTeam[]>('/api/teams/my'),
+  deleteTeam: (teamId: number) => request<void>(`/api/teams/${teamId}`, { method: 'DELETE' }),
 
   tags: () => request<Tag[]>('/api/tags'),
   createTag: (body: { name: string; color?: string | null }) =>
@@ -179,6 +180,7 @@ export const api = {
 
   adminTeams: () => request<TeamAdmin[]>('/api/admin/teams'),
   adminEmployees: () => request<Employee[]>('/api/admin/employees'),
+  adminDeleteTeam: (teamId: number) => request<void>(`/api/admin/teams/${teamId}`, { method: 'DELETE' }),
 
   // Task Comments
   addComment: async (taskId: number, content: string, files?: File[]): Promise<TaskComment> => {

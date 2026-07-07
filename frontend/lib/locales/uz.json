@@ -23,7 +23,9 @@
     "name": "Jamoa nomi",
     "createSubmit": "Jamoa yaratish",
     "new": "Yangi jamoa",
-    "switcher": "Jamoa"
+    "switcher": "Jamoa",
+    "delete": "Jamoani o'chirish",
+    "deleteConfirm": "\"{{team}}\" jamoasini barcha vazifalar, izohlar va fayllar bilan butunlay o'chirasizmi? Buni qaytarib bo'lmaydi."
   },
   "nav": {
     "tasks": "Tasklar",

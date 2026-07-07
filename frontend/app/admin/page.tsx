@@ -31,6 +31,16 @@ export default function AdminPage() {
       .finally(() => setLoading(false));
   }, [employee?.admin, router]);
 
+  const deleteTeam = async (id: number, name: string) => {
+    if (!confirm(t('team.deleteConfirm', { team: name }))) return;
+    try {
+      await api.adminDeleteTeam(id);
+      setTeams((cur) => cur.filter((x) => x.id !== id));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to delete team');
+    }
+  };
+
   if (loading) return <DashboardLayout><PageLoader /></DashboardLayout>;
 
   const tabs = [
@@ -55,7 +65,7 @@ export default function AdminPage() {
         <Card className="overflow-hidden">
           <table className="min-w-full divide-y divide-slate-100 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <tr><th className="px-5 py-3">ID</th><th className="px-5 py-3">{t('admin.teamName')}</th><th className="px-5 py-3">{t('admin.memberCount')}</th><th className="px-5 py-3">{t('admin.createdAt')}</th></tr>
+              <tr><th className="px-5 py-3">ID</th><th className="px-5 py-3">{t('admin.teamName')}</th><th className="px-5 py-3">{t('admin.memberCount')}</th><th className="px-5 py-3">{t('admin.createdAt')}</th><th className="px-5 py-3" /></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {teams.map((tm) => (
@@ -64,6 +74,11 @@ export default function AdminPage() {
                   <td className="px-5 py-3 font-medium text-slate-900">{tm.name}</td>
                   <td className="px-5 py-3 text-slate-600">{tm.memberCount}</td>
                   <td className="px-5 py-3 text-slate-500">{new Date(tm.createdAt).toLocaleDateString()}</td>
+                  <td className="px-5 py-3 text-right">
+                    <button onClick={() => deleteTeam(tm.id, tm.name)} className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
+                      {t('common.delete')}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
