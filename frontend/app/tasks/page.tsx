@@ -188,7 +188,7 @@ export default function TasksPage() {
           myId={myId}
           members={members}
           onClose={() => setDetailTask(null)}
-          onEdit={() => setEditTask(detailTask)}
+          onEdit={() => { setEditTask(detailTask); setDetailTask(null); }}
           onAction={act}
         />
       )}
