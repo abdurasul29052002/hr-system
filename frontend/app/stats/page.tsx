@@ -12,10 +12,10 @@ import '@/lib/i18n';
 
 const PRIO_COLOR: Record<TaskPriority, 'red' | 'amber' | 'slate'> = { HIGH: 'red', MEDIUM: 'amber', LOW: 'slate' };
 const STATUS_COLOR: Record<TaskStatus, 'blue' | 'amber' | 'violet' | 'green' | 'slate'> = {
-  OPEN: 'blue', IN_PROGRESS: 'amber', TESTING: 'violet', DONE: 'green', CANCELLED: 'slate',
+  PENDING: 'amber', OPEN: 'blue', IN_PROGRESS: 'amber', TESTING: 'violet', DONE: 'green', CANCELLED: 'slate',
 };
 const STATUS_KEY: Record<TaskStatus, string> = {
-  OPEN: 'tasks.open', IN_PROGRESS: 'tasks.inProgress', TESTING: 'tasks.testing', DONE: 'tasks.done', CANCELLED: 'tasks.cancelled',
+  PENDING: 'tasks.pending', OPEN: 'tasks.open', IN_PROGRESS: 'tasks.inProgress', TESTING: 'tasks.testing', DONE: 'tasks.done', CANCELLED: 'tasks.cancelled',
 };
 
 export default function StatsPage() {
@@ -221,16 +221,23 @@ export default function StatsPage() {
                             <Avatar name={e.fullName} size={8} />
                             <p className="font-medium text-slate-900">{e.fullName}</p>
                           </div>
-                          <span className="text-sm font-semibold text-emerald-600">{e.completed} {t('stats.done')}</span>
+                          <span className="text-sm font-semibold text-slate-600">{e.taken} {t('stats.taken')}</span>
                         </div>
                         {/* This member's proportional status-distribution bar (overdue → red). */}
                         <div className="mb-2">
                           <DistBar slices={memberSlices} total={memberTotal} />
                         </div>
+                        {/* Explicit per-category counts: how many of each kind this member has. */}
                         <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                          <div><p className="font-semibold text-slate-700">{e.taken}</p><p className="text-slate-400">{t('stats.taken')}</p></div>
+                          <div><p className="font-semibold text-amber-600">{e.inProgress}</p><p className="text-slate-400">{t('stats.inProgress')}</p></div>
+                          <div><p className="font-semibold text-violet-600">{e.testing}</p><p className="text-slate-400">{t('stats.testing')}</p></div>
+                          <div><p className="font-semibold text-emerald-600">{e.completed}</p><p className="text-slate-400">{t('stats.done')}</p></div>
+                          <div><p className="font-semibold text-slate-500">{e.cancelled}</p><p className="text-slate-400">{t('stats.cancelled')}</p></div>
+                        </div>
+                        <div className="mt-2 grid grid-cols-4 gap-2 text-center text-xs">
                           <div><p className="font-semibold text-blue-600">{e.onTime}</p><p className="text-slate-400">{t('stats.onTime')}</p></div>
                           <div><p className="font-semibold text-red-600">{e.overdue}</p><p className="text-slate-400">{t('stats.overdue')}</p></div>
+                          <div><p className="font-semibold text-brand-600">{e.reviewed}</p><p className="text-slate-400">{t('stats.reviewed')}</p></div>
                           <div><p className="font-semibold text-slate-700">{e.avgCompletionHours != null ? e.avgCompletionHours + 'h' : '—'}</p><p className="text-slate-400">{t('stats.avgHours')}</p></div>
                         </div>
                         {e.completed > 0 && (
@@ -250,7 +257,7 @@ export default function StatsPage() {
 }
 
 const BAR_COLOR: Record<TaskStatus, string> = {
-  OPEN: 'bg-blue-400', IN_PROGRESS: 'bg-amber-400', TESTING: 'bg-violet-400', DONE: 'bg-emerald-500', CANCELLED: 'bg-slate-300',
+  PENDING: 'bg-amber-300', OPEN: 'bg-blue-400', IN_PROGRESS: 'bg-amber-400', TESTING: 'bg-violet-400', DONE: 'bg-emerald-500', CANCELLED: 'bg-slate-300',
 };
 
 // Colors for the overall task-distribution bar (overdue carved out of its status).

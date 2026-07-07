@@ -77,4 +77,22 @@ public class TaskController {
     public TaskDto cancel(@PathVariable Long id) {
         return taskService.cancel(id, currentMembership.get());
     }
+
+    /** A member self-reports what they are working on → creates a PENDING proposal for a leader to confirm. */
+    @PostMapping("/propose")
+    public TaskDto propose(@Valid @RequestBody TaskRequest request) {
+        return taskService.propose(request, currentMembership.get());
+    }
+
+    /** Leader/manager confirms a proposal → it becomes a real (in-progress) task visible to the team. */
+    @PostMapping("/{id}/approve-proposal")
+    public TaskDto approveProposal(@PathVariable Long id) {
+        return taskService.approveProposal(id, currentMembership.get());
+    }
+
+    /** Leader/manager declines a proposal → it is deleted. */
+    @PostMapping("/{id}/reject-proposal")
+    public void rejectProposal(@PathVariable Long id) {
+        taskService.rejectProposal(id, currentMembership.get());
+    }
 }

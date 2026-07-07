@@ -257,7 +257,7 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                 session.state = State.NONE;
                 TaskDto task = taskService.create(
                         new TaskRequest(session.draftTitle, session.draftDescription, session.draftPriority,
-                                deadline, new ArrayList<>(session.draftTagIds), null),
+                                deadline, new ArrayList<>(session.draftTagIds), null, null),
                         membership);
                 session.draftTagIds.clear();
                 send(chatId, BotMessages.get(lang, "created", "#" + task.id() + " " + task.title()),

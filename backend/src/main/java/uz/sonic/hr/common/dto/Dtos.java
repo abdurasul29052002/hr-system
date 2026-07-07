@@ -2,6 +2,7 @@ package uz.sonic.hr.common.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import uz.sonic.hr.common.enums.*;
 import uz.sonic.hr.common.entity.*;
 import uz.sonic.hr.employee.*;
@@ -125,21 +126,24 @@ public final class Dtos {
 
     public record TaskDto(Long id, String title, String description, TaskPriority priority, TaskStatus status,
                           Long createdById, String createdByName, Long assigneeId, String assigneeName,
+                          Long reviewerId, String reviewerName,
                           List<TagDto> tags, LocalDate deadline, Instant createdAt, Instant takenAt,
-                          Instant completedAt) {
+                          Instant submittedAt, Instant completedAt) {
 
         public static TaskDto from(Task t) {
             return new TaskDto(t.getId(), t.getTitle(), t.getDescription(), t.getPriority(), t.getStatus(),
                     t.getCreatedBy().getId(), t.getCreatedBy().getFullName(),
                     t.getAssignee() != null ? t.getAssignee().getId() : null,
                     t.getAssignee() != null ? t.getAssignee().getFullName() : null,
+                    t.getReviewer() != null ? t.getReviewer().getId() : null,
+                    t.getReviewer() != null ? t.getReviewer().getFullName() : null,
                     t.getTags().stream().map(TagDto::from).sorted(Comparator.comparing(TagDto::name)).toList(),
-                    t.getDeadline(), t.getCreatedAt(), t.getTakenAt(), t.getCompletedAt());
+                    t.getDeadline(), t.getCreatedAt(), t.getTakenAt(), t.getSubmittedAt(), t.getCompletedAt());
         }
     }
 
-    public record TaskRequest(@NotBlank String title, String description, TaskPriority priority,
-                              LocalDate deadline, List<Long> tagIds, Long assigneeId) {
+    public record TaskRequest(@NotBlank @Size(max = 120) String title, String description, TaskPriority priority,
+                              LocalDate deadline, List<Long> tagIds, Long assigneeId, Long reviewerId) {
     }
 
     public record AssignRequest(@NotNull Long employeeId) {
@@ -153,8 +157,8 @@ public final class Dtos {
     }
 
     public record EmployeeStats(Long employeeId, String fullName, long taken, long completed, long inProgress,
-                                long testing, long overdue, long onTime, Double avgCompletionHours,
-                                List<TaskBriefDto> tasks) {
+                                long testing, long cancelled, long overdue, long onTime, long reviewed,
+                                Double avgCompletionHours, List<TaskBriefDto> tasks) {
     }
 
     /** One slice of the overall task-distribution bar (like a phone-storage breakdown). */

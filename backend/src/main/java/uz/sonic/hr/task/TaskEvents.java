@@ -36,4 +36,8 @@ public final class TaskEvents {
 
     public record TaskCompleted(Long taskId, Long teamId, String title, String workerName, Long actorId) {
     }
+
+    /** A member self-reported what they are working on; leaders must confirm it becomes a real task. */
+    public record TaskProposed(Long taskId, Long teamId, String title, String proposerName, Long proposerId) {
+    }
 }

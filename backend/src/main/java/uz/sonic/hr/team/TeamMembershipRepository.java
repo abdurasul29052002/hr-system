@@ -31,6 +31,14 @@ public interface TeamMembershipRepository extends JpaRepository<TeamMembership, 
     List<TeamMembership> findLinkedByTeamIdAndRoleIn(@Param("teamId") Long teamId,
                                                      @Param("roles") Collection<Role> roles);
 
+    /** Active members of a team holding any of the given roles (for in-app notifications; no Telegram filter). */
+    @Query("""
+            select m from TeamMembership m join fetch m.employee e
+            where m.team.id = :teamId and m.role in :roles and e.active = true
+            """)
+    List<TeamMembership> findActiveByTeamIdAndRoleIn(@Param("teamId") Long teamId,
+                                                     @Param("roles") Collection<Role> roles);
+
     long countByTeamId(Long teamId);
 
     long countByTeamIdAndRole(Long teamId, Role role);

@@ -71,7 +71,24 @@
     "assignTo": "Biriktirish",
     "created": "Yaratilgan",
     "comments": "Izohlar",
-    "attachments": "Ilovalar"
+    "attachments": "Ilovalar",
+    "start": "Boshlash",
+    "reviewer": "Tekshiruvchi",
+    "noReviewer": "Tekshiruvchisiz",
+    "reviewedBy": "Tekshirdi",
+    "edit": "Tahrirlash",
+    "editTask": "Vazifani tahrirlash",
+    "pending": "Kutilmoqda",
+    "pendingApproval": "Tasdiqlash kutilmoqda",
+    "awaitingApproval": "Leader tasdig'i kutilmoqda",
+    "confirmProposal": "Tasdiqlash",
+    "declineProposal": "Rad etish",
+    "whatWorkingOn": "Nima ustida ishlayapsiz?",
+    "proposeHint": "Sizda faol vazifa yo'q — nima qilayotganingizni jamoaga bildiring.",
+    "report": "Bildirish",
+    "proposeModalHint": "Nima ustida ishlayotganingizni yozing. Leader uni vazifa sifatida tasdiqlaydi.",
+    "sendForApproval": "Tasdiqqa yuborish",
+    "descriptionHint": "Tafsilotlar shu yerda — nom qisqa bo'lsin."
   },
   "employees": {
     "title": "Jamoa a'zolari",
@@ -175,7 +192,8 @@
     "timeline": "Oylik timeline",
     "noTimeline": "Bu oyda tasklar yo'q",
     "distribution": "Umumiy taqsimot",
-    "tasksTotal": "ta task"
+    "tasksTotal": "ta task",
+    "reviewed": "Tekshirgan"
   },
   "comments": {
     "title": "Izohlar",

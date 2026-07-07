@@ -18,6 +18,9 @@ import uz.sonic.hr.employee.EmployeeRepository;
 import uz.sonic.hr.task.TaskCommentRepository;
 import uz.sonic.hr.task.TaskRepository;
 import uz.sonic.hr.team.TeamInviteRepository;
+import uz.sonic.hr.team.TeamMembershipRepository;
+
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -29,6 +32,7 @@ public class NotificationEventListener {
     private final TaskRepository taskRepository;
     private final TaskCommentRepository commentRepository;
     private final TeamInviteRepository inviteRepository;
+    private final TeamMembershipRepository membershipRepository;
 
     @EventListener
     @Async
@@ -96,6 +100,33 @@ public class NotificationEventListener {
             }
         } catch (Exception e) {
             log.error("Failed to create notification for TaskRejected", e);
+        }
+    }
+
+    @EventListener
+    @Async
+    @Transactional
+    public void onTaskProposed(TaskEvents.TaskProposed event) {
+        try {
+            Task task = taskRepository.findById(event.taskId()).orElse(null);
+            Employee proposer = employeeRepository.findById(event.proposerId()).orElse(null);
+            if (task == null || proposer == null) return;
+
+            // The proposal is a request to the team's leaders/managers to confirm it as a real task.
+            List<TeamMembership> approvers = membershipRepository.findActiveByTeamIdAndRoleIn(
+                    event.teamId(), List.of(Role.LEADER, Role.MANAGER));
+            for (TeamMembership m : approvers) {
+                if (m.getEmployee().getId().equals(event.proposerId())) continue; // don't notify the proposer
+                notificationService.createNotification(
+                        NotificationType.TASK_PROPOSED,
+                        m.getEmployee(),
+                        "New task to confirm",
+                        event.proposerName() + " reported: " + event.title(),
+                        task, null, null, proposer
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to create notification for TaskProposed", e);
         }
     }
 

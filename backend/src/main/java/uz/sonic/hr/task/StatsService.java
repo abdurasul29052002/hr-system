@@ -49,6 +49,14 @@ public class StatsService {
             }
         }
 
+        // How many DONE tasks each person reviewed (approved) this month — powers "who reviewed it".
+        Map<Long, Long> reviewedCount = new HashMap<>();
+        for (Task task : tasks) {
+            if (task.getStatus() == TaskStatus.DONE && task.getReviewer() != null) {
+                reviewedCount.merge(task.getReviewer().getId(), 1L, Long::sum);
+            }
+        }
+
         List<EmployeeStats> perEmployee = new ArrayList<>();
         for (List<Task> employeeTasks : byAssignee.values()) {
             Task first = employeeTasks.getFirst();
@@ -56,6 +64,8 @@ public class StatsService {
             long done = count(employeeTasks, TaskStatus.DONE);
             long working = count(employeeTasks, TaskStatus.IN_PROGRESS);
             long inReview = count(employeeTasks, TaskStatus.TESTING);
+            long cancelledForEmp = count(employeeTasks, TaskStatus.CANCELLED);
+            long reviewed = reviewedCount.getOrDefault(first.getAssignee().getId(), 0L);
             long overdue = employeeTasks.stream().filter(t -> isOverdue(t, zone)).count();
             long onTime = employeeTasks.stream()
                     .filter(t -> t.getStatus() == TaskStatus.DONE && t.getCompletedAt() != null)
@@ -75,7 +85,7 @@ public class StatsService {
             perEmployee.add(new EmployeeStats(
                     first.getAssignee().getId(),
                     first.getAssignee().getFullName(),
-                    taken, done, working, inReview, overdue, onTime,
+                    taken, done, working, inReview, cancelledForEmp, overdue, onTime, reviewed,
                     avgHours.isPresent() ? Math.round(avgHours.getAsDouble() * 10) / 10.0 : null,
                     briefs));
         }

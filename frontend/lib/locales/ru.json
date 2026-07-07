@@ -71,7 +71,24 @@
     "assignTo": "Назначить",
     "created": "Создано",
     "comments": "Комментарии",
-    "attachments": "Вложения"
+    "attachments": "Вложения",
+    "start": "Начать",
+    "reviewer": "Проверяющий",
+    "noReviewer": "Без проверяющего",
+    "reviewedBy": "Проверил",
+    "edit": "Изменить",
+    "editTask": "Изменить задачу",
+    "pending": "Ожидает",
+    "pendingApproval": "Ожидают подтверждения",
+    "awaitingApproval": "Ожидает подтверждения лидера",
+    "confirmProposal": "Подтвердить",
+    "declineProposal": "Отклонить",
+    "whatWorkingOn": "Над чем вы работаете?",
+    "proposeHint": "У вас нет активной задачи — сообщите команде, чем вы заняты.",
+    "report": "Сообщить",
+    "proposeModalHint": "Опишите, над чем работаете. Лидер подтвердит это как задачу.",
+    "sendForApproval": "Отправить на подтверждение",
+    "descriptionHint": "Подробности — здесь; заголовок держите коротким."
   },
   "employees": {
     "title": "Участники команды",
@@ -175,7 +192,8 @@
     "timeline": "Таймлайн за месяц",
     "noTimeline": "Нет задач в этом месяце",
     "distribution": "Распределение задач",
-    "tasksTotal": "задач"
+    "tasksTotal": "задач",
+    "reviewed": "Проверил"
   },
   "comments": {
     "title": "Комментарии",

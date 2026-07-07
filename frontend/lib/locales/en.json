@@ -71,7 +71,24 @@
     "assignTo": "Assign to",
     "created": "Created",
     "comments": "Comments",
-    "attachments": "Attachments"
+    "attachments": "Attachments",
+    "start": "Start",
+    "reviewer": "Reviewer",
+    "noReviewer": "No reviewer",
+    "reviewedBy": "Reviewed by",
+    "edit": "Edit",
+    "editTask": "Edit task",
+    "pending": "Pending",
+    "pendingApproval": "Awaiting confirmation",
+    "awaitingApproval": "Awaiting leader confirmation",
+    "confirmProposal": "Confirm",
+    "declineProposal": "Decline",
+    "whatWorkingOn": "What are you working on?",
+    "proposeHint": "You have no active task — tell your team what you're doing.",
+    "report": "Report",
+    "proposeModalHint": "Describe what you are working on. A leader will confirm it as a task.",
+    "sendForApproval": "Send for approval",
+    "descriptionHint": "Add the details here — keep the title short."
   },
   "employees": {
     "title": "Team members",
@@ -175,7 +192,8 @@
     "timeline": "Monthly timeline",
     "noTimeline": "No tasks in this month",
     "distribution": "Task distribution",
-    "tasksTotal": "tasks"
+    "tasksTotal": "tasks",
+    "reviewed": "Reviewed"
   },
   "comments": {
     "title": "Comments",

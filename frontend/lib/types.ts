@@ -1,6 +1,6 @@
 export type Role = 'LEADER' | 'MANAGER' | 'MEMBER';
 export type Language = 'EN' | 'RU' | 'UZ';
-export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'TESTING' | 'DONE' | 'CANCELLED';
+export type TaskStatus = 'PENDING' | 'OPEN' | 'IN_PROGRESS' | 'TESTING' | 'DONE' | 'CANCELLED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface MyTeam {
@@ -58,10 +58,13 @@ export interface Task {
   createdByName: string;
   assigneeId: number | null;
   assigneeName: string | null;
+  reviewerId: number | null;
+  reviewerName: string | null;
   tags: Tag[];
   deadline: string | null;
   createdAt: string;
   takenAt: string | null;
+  submittedAt: string | null;
   completedAt: string | null;
 }
 
@@ -79,8 +82,10 @@ export interface EmployeeStats {
   completed: number;
   inProgress: number;
   testing: number;
+  cancelled: number;
   overdue: number;
   onTime: number;
+  reviewed: number;
   avgCompletionHours: number | null;
   tasks: TaskBrief[];
 }
@@ -157,6 +162,7 @@ export interface TaskBody {
   deadline?: string | null;
   tagIds?: number[];
   assigneeId?: number | null;
+  reviewerId?: number | null;
 }
 
 export interface TeamAdmin {
@@ -208,6 +214,7 @@ export type NotificationType =
   | 'TASK_COMPLETED'
   | 'TASK_APPROVED'
   | 'TASK_REJECTED'
+  | 'TASK_PROPOSED'
   | 'INVITE_RECEIVED'
   | 'COMMENT_ADDED';
 

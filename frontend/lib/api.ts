@@ -114,6 +114,10 @@ export const api = {
   rejectTask: (id: number) => request<Task>(`/api/tasks/${id}/reject`, { method: 'POST' }),
   releaseTask: (id: number) => request<Task>(`/api/tasks/${id}/release`, { method: 'POST' }),
   cancelTask: (id: number) => request<Task>(`/api/tasks/${id}/cancel`, { method: 'POST' }),
+  // Self-reported work: a member proposes a task; a leader confirms or declines it.
+  proposeTask: (body: TaskBody) => request<Task>('/api/tasks/propose', { method: 'POST', body: JSON.stringify(body) }),
+  approveProposal: (id: number) => request<Task>(`/api/tasks/${id}/approve-proposal`, { method: 'POST' }),
+  rejectProposal: (id: number) => request<void>(`/api/tasks/${id}/reject-proposal`, { method: 'POST' }),
 
   members: () => request<Member[]>('/api/employees'),
   createMember: (body: {

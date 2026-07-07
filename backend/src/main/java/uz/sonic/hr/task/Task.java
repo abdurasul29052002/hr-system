@@ -62,6 +62,14 @@ public class Task {
     @ManyToOne(fetch = FetchType.LAZY)
     private Employee assignee;
 
+    /**
+     * Designated reviewer/tester (GitHub-PR style). Set when creating/assigning/editing the task; the
+     * reviewer OR any manager can approve/reject the submitted work. On approve/reject it is updated to
+     * whoever actually reviewed, so the task always shows "who did it" (assignee) + "who reviewed it".
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Employee reviewer;
+
     private LocalDate deadline;
 
     @Builder.Default

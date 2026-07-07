@@ -34,7 +34,10 @@ public class TaskService {
     private final TeamMembershipRepository membershipRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    /** Leader/manager creates a task; optionally assigned to a team member right away. */
+    /**
+     * Leader/manager creates a task. It may be assigned to a member and given a reviewer up front, but
+     * assigning does NOT start it — it stays OPEN until the assignee presses "Start".
+     */
     @Transactional
     public TaskDto create(TaskRequest request, TeamMembership actor) {
         TeamService.requireManager(actor);
@@ -49,20 +52,23 @@ public class TaskService {
                 .createdBy(actor.getEmployee())
                 .build();
         if (request.assigneeId() != null) {
-            Employee assignee = getActiveTeammate(request.assigneeId(), team);
-            task.setAssignee(assignee);
-            task.setStatus(TaskStatus.IN_PROGRESS);
-            task.setTakenAt(Instant.now());
+            task.setAssignee(getActiveTeammate(request.assigneeId(), team));
         }
+        task.setReviewer(resolveReviewer(request.reviewerId(), team, task.getAssignee()));
         task = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskEvents.TaskCreated(
                 task.getId(), team.getId(), task.getTitle(), task.getPriority(), task.getDeadline(),
                 actor.getEmployee().getFullName(), actor.getEmployee().getId(),
                 task.getAssignee() != null ? task.getAssignee().getId() : null));
+        if (task.getAssignee() != null) {
+            eventPublisher.publishEvent(new TaskEvents.TaskAssigned(
+                    task.getId(), team.getId(), task.getTitle(), task.getAssignee().getId(),
+                    actor.getEmployee().getFullName(), actor.getEmployee().getId()));
+        }
         return TaskDto.from(task);
     }
 
-    /** Leader/manager assigns an open task to an active team member. */
+    /** Leader/manager assigns an open task to a member. Assigning does NOT start it — the assignee presses "Start". */
     @Transactional
     public TaskDto assign(Long id, Long employeeId, TeamMembership actor) {
         TeamService.requireManager(actor);
@@ -71,9 +77,10 @@ public class TaskService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is not open");
         }
         Employee assignee = getActiveTeammate(employeeId, task.getTeam());
+        if (task.getReviewer() != null && task.getReviewer().getId().equals(assignee.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assignee and reviewer must be different people");
+        }
         task.setAssignee(assignee);
-        task.setStatus(TaskStatus.IN_PROGRESS);
-        task.setTakenAt(Instant.now());
         task = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskEvents.TaskAssigned(
                 task.getId(), task.getTeam().getId(), task.getTitle(), assignee.getId(),
@@ -81,6 +88,7 @@ public class TaskService {
         return TaskDto.from(task);
     }
 
+    /** Leader/manager edits task metadata (title, description, priority, deadline, tags, reviewer). No status change. */
     @Transactional
     public TaskDto update(Long id, TaskRequest request, TeamMembership actor) {
         TeamService.requireManager(actor);
@@ -94,9 +102,14 @@ public class TaskService {
         if (request.tagIds() != null) {
             task.setTags(resolveTags(request.tagIds(), task.getTeam()));
         }
+        task.setReviewer(resolveReviewer(request.reviewerId(), task.getTeam(), task.getAssignee()));
         return TaskDto.from(taskRepository.save(task));
     }
 
+    /**
+     * Begin work on an OPEN task: an unassigned task is grabbed from the pool, or the assigned member
+     * "Starts" their own task. Either way it moves to IN_PROGRESS. You cannot take someone else's task.
+     */
     @Transactional
     public TaskDto take(Long id, TeamMembership actor) {
         Task task = getInTeam(id, actor);
@@ -104,12 +117,19 @@ public class TaskService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is not open");
         }
         Employee worker = actor.getEmployee();
+        boolean assignedToMe = task.getAssignee() != null && task.getAssignee().getId().equals(worker.getId());
+        if (task.getAssignee() != null && !assignedToMe && !TeamService.isManagerOrLeader(actor)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is assigned to someone else");
+        }
         task.setStatus(TaskStatus.IN_PROGRESS);
-        task.setAssignee(worker);
+        if (task.getAssignee() == null) {
+            task.setAssignee(worker);
+        }
         task.setTakenAt(Instant.now());
         task = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskEvents.TaskTaken(
-                task.getId(), task.getTeam().getId(), task.getTitle(), worker.getFullName(), worker.getId()));
+                task.getId(), task.getTeam().getId(), task.getTitle(),
+                task.getAssignee().getFullName(), worker.getId()));
         return TaskDto.from(task);
     }
 
@@ -147,16 +167,17 @@ public class TaskService {
         return TaskDto.from(task);
     }
 
-    /** Leader/manager approves a task in review: TESTING → DONE. */
+    /** The designated reviewer (or a manager) approves a task in review: TESTING → DONE. */
     @Transactional
     public TaskDto approve(Long id, TeamMembership actor) {
-        TeamService.requireManager(actor);
         Task task = getInTeam(id, actor);
         if (task.getStatus() != TaskStatus.TESTING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is not in review");
         }
+        requireReviewerOrManager(task, actor);
         task.setStatus(TaskStatus.DONE);
         task.setCompletedAt(Instant.now());
+        task.setReviewer(actor.getEmployee()); // record who actually reviewed
         task = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskEvents.TaskApproved(
                 task.getId(), task.getTeam().getId(), task.getTitle(),
@@ -165,16 +186,17 @@ public class TaskService {
         return TaskDto.from(task);
     }
 
-    /** Leader/manager returns a task for rework: TESTING → IN_PROGRESS. */
+    /** The designated reviewer (or a manager) returns a task for rework: TESTING → IN_PROGRESS. */
     @Transactional
     public TaskDto reject(Long id, TeamMembership actor) {
-        TeamService.requireManager(actor);
         Task task = getInTeam(id, actor);
         if (task.getStatus() != TaskStatus.TESTING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is not in review");
         }
+        requireReviewerOrManager(task, actor);
         task.setStatus(TaskStatus.IN_PROGRESS);
         task.setSubmittedAt(null);
+        task.setReviewer(actor.getEmployee()); // record who actually reviewed
         task = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskEvents.TaskRejected(
                 task.getId(), task.getTeam().getId(), task.getTitle(),
@@ -212,6 +234,53 @@ public class TaskService {
         return TaskDto.from(taskRepository.save(task));
     }
 
+    /**
+     * A member self-reports what they are working on. It becomes a PENDING proposal (assigned to them),
+     * visible only to the proposer and the team's leaders/managers, until a leader confirms it as a task.
+     */
+    @Transactional
+    public TaskDto propose(TaskRequest request, TeamMembership actor) {
+        Team team = actor.getTeam();
+        Employee me = actor.getEmployee();
+        Task task = taskRepository.save(Task.builder()
+                .title(request.title())
+                .description(request.description())
+                .priority(request.priority() != null ? request.priority() : TaskPriority.MEDIUM)
+                .deadline(request.deadline())
+                .team(team)
+                .createdBy(me)
+                .assignee(me)
+                .status(TaskStatus.PENDING)
+                .build());
+        eventPublisher.publishEvent(new TaskEvents.TaskProposed(
+                task.getId(), team.getId(), task.getTitle(), me.getFullName(), me.getId()));
+        return TaskDto.from(task);
+    }
+
+    /** Leader/manager confirms a proposal: PENDING → IN_PROGRESS, now visible to the whole team. */
+    @Transactional
+    public TaskDto approveProposal(Long id, TeamMembership actor) {
+        TeamService.requireManager(actor);
+        Task task = getInTeam(id, actor);
+        if (task.getStatus() != TaskStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is not a pending proposal");
+        }
+        task.setStatus(TaskStatus.IN_PROGRESS);
+        task.setTakenAt(Instant.now());
+        return TaskDto.from(taskRepository.save(task));
+    }
+
+    /** Leader/manager declines a proposal: it is deleted. */
+    @Transactional
+    public void rejectProposal(Long id, TeamMembership actor) {
+        TeamService.requireManager(actor);
+        Task task = getInTeam(id, actor);
+        if (task.getStatus() != TaskStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is not a pending proposal");
+        }
+        taskRepository.delete(task);
+    }
+
     @Transactional(readOnly = true)
     public List<TaskDto> list(TaskStatus status, Long assigneeId, TeamMembership viewer) {
         Long teamId = viewer.getTeam().getId();
@@ -225,12 +294,41 @@ public class TaskService {
         } else {
             tasks = taskRepository.findAllByTeamIdOrderByCreatedAtDesc(teamId);
         }
-        return tasks.stream().map(TaskDto::from).toList();
+        boolean manager = TeamService.isManagerOrLeader(viewer);
+        Long myId = viewer.getEmployee().getId();
+        return tasks.stream()
+                // PENDING proposals are visible only to their proposer and the team's leaders/managers.
+                .filter(t -> t.getStatus() != TaskStatus.PENDING || manager
+                        || (t.getAssignee() != null && t.getAssignee().getId().equals(myId)))
+                .map(TaskDto::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public TaskDto getDto(Long id, TeamMembership viewer) {
         return TaskDto.from(getInTeam(id, viewer));
+    }
+
+    private void requireReviewerOrManager(Task task, TeamMembership actor) {
+        boolean isReviewer = task.getReviewer() != null
+                && task.getReviewer().getId().equals(actor.getEmployee().getId());
+        if (!isReviewer && !TeamService.isManagerOrLeader(actor)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only the assigned reviewer or a manager can review this task");
+        }
+    }
+
+    /** Resolves the optional reviewer, ensuring it is an active teammate and not the assignee. */
+    private Employee resolveReviewer(Long reviewerId, Team team, Employee assignee) {
+        if (reviewerId == null) {
+            return null;
+        }
+        Employee reviewer = getActiveTeammate(reviewerId, team);
+        if (assignee != null && assignee.getId().equals(reviewer.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "The reviewer must be different from the assignee");
+        }
+        return reviewer;
     }
 
     private Employee getActiveTeammate(Long employeeId, Team team) {
