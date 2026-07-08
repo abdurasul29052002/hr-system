@@ -55,7 +55,7 @@ public class TeamJoinRequestService {
                 .status(JoinRequestStatus.PENDING)
                 .build());
         eventPublisher.publishEvent(new JoinRequestEvents.TeamJoinRequested(
-                request.getId(), teamId, employee.getId(), employee.getFullName()));
+                request.getId(), teamId, team.getName(), employee.getId(), employee.getFullName()));
         return TeamJoinRequestDto.from(request);
     }
 
@@ -105,7 +105,38 @@ public class TeamJoinRequestService {
         return TeamJoinRequestDto.from(request);
     }
 
+    /**
+     * Approve a request when the actor is identified only by their {@link Employee} (e.g. a Telegram
+     * callback, which has no X-Team-Id header). The actor's membership is resolved in the request's
+     * own team, so authorization still runs against the correct team — never the actor's "current" one.
+     */
+    @Transactional
+    public TeamJoinRequestDto approveByEmployee(Long requestId, Employee actor) {
+        return decideByEmployee(requestId, actor, true);
+    }
+
+    /** Reject a request identified by the actor's {@link Employee}. See {@link #approveByEmployee}. */
+    @Transactional
+    public TeamJoinRequestDto rejectByEmployee(Long requestId, Employee actor) {
+        return decideByEmployee(requestId, actor, false);
+    }
+
+    private TeamJoinRequestDto decideByEmployee(Long requestId, Employee actorEmployee, boolean approve) {
+        TeamJoinRequest request = requestRepository.findWithEmployeeAndTeamById(requestId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Join request not found"));
+        TeamMembership actor = membershipRepository
+                .findByEmployeeIdAndTeamId(actorEmployee.getId(), request.getTeam().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "You are not a member of this team"));
+        return approve ? approve(requestId, actor) : reject(requestId, actor);
+    }
+
     private TeamJoinRequest getPendingInTeam(Long requestId, Long teamId) {
+        // Serialize concurrent deciders on this row: the second approve/reject blocks on the lock until
+        // the first commits, then re-reads the (now non-PENDING) status below and is rejected. Without
+        // this, both could pass the PENDING check under READ_COMMITTED and both write — double-notifying
+        // the requester or leaving them a member while the request reads REJECTED.
+        requestRepository.lockById(requestId);
         return requestRepository.findWithEmployeeAndTeamById(requestId)
                 .filter(r -> r.getTeam().getId().equals(teamId))
                 .filter(r -> r.getStatus() == JoinRequestStatus.PENDING)

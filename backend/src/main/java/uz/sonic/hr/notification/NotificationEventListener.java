@@ -6,6 +6,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import uz.sonic.hr.common.enums.*;
 import uz.sonic.hr.common.entity.*;
 import uz.sonic.hr.employee.*;
@@ -130,7 +132,7 @@ public class NotificationEventListener {
         }
     }
 
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
     @Transactional
     public void onTeamJoinRequested(JoinRequestEvents.TeamJoinRequested event) {
@@ -144,7 +146,7 @@ public class NotificationEventListener {
                         NotificationType.TEAM_JOIN_REQUESTED,
                         m.getEmployee(),
                         "New join request",
-                        requester.getFullName() + " wants to join your team.",
+                        requester.getFullName() + " wants to join " + event.teamName() + ".",
                         null, null, null, requester
                 );
             }
@@ -153,7 +155,7 @@ public class NotificationEventListener {
         }
     }
 
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
     @Transactional
     public void onTeamJoinApproved(JoinRequestEvents.TeamJoinApproved event) {
@@ -174,7 +176,7 @@ public class NotificationEventListener {
         }
     }
 
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
     @Transactional
     public void onTeamJoinRejected(JoinRequestEvents.TeamJoinRejected event) {

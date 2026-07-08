@@ -4,12 +4,17 @@ import uz.sonic.hr.team.TeamService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
+import org.springframework.http.HttpStatus;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -39,6 +44,7 @@ import uz.sonic.hr.common.dto.Dtos.MonthlyStats;
 import uz.sonic.hr.common.dto.Dtos.TagDto;
 import uz.sonic.hr.common.dto.Dtos.TaskDto;
 import uz.sonic.hr.common.dto.Dtos.TaskRequest;
+import uz.sonic.hr.common.dto.Dtos.TeamJoinRequestDto;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -70,6 +76,7 @@ public class HrTelegramBot extends TelegramLongPollingBot {
     private final TaskService taskService;
     private final StatsService statsService;
     private final TaskCommentService taskCommentService;
+    private final TeamJoinRequestService teamJoinRequestService;
     private final Map<Long, Session> sessions = new ConcurrentHashMap<>();
 
     public HrTelegramBot(@Value("${app.bot.token}") String token,
@@ -79,7 +86,8 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                          TagRepository tagRepository,
                          TaskService taskService,
                          StatsService statsService,
-                         TaskCommentService taskCommentService) {
+                         TaskCommentService taskCommentService,
+                         TeamJoinRequestService teamJoinRequestService) {
         super(token == null || token.isBlank() ? "disabled" : token);
         this.botUsername = botUsername == null || botUsername.isBlank() ? "hr_bot" : botUsername;
         this.enabled = token != null && !token.isBlank();
@@ -89,6 +97,7 @@ public class HrTelegramBot extends TelegramLongPollingBot {
         this.taskService = taskService;
         this.statsService = statsService;
         this.taskCommentService = taskCommentService;
+        this.teamJoinRequestService = teamJoinRequestService;
     }
 
     public boolean isEnabled() {
@@ -372,6 +381,11 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                             send(chatId, BotMessages.get(lang, "team_set", membership.getTeam().getName()), null);
                             sendMenu(chatId, employee, membership);
                         });
+            } else if ((data.startsWith("jra:") || data.startsWith("jrr:")) && employee != null) {
+                // Join-request decision uses the request's own team (not the bot's selected team),
+                // so it must not go through resolveMembership/team-chooser.
+                handleJoinDecision(cq, chatId, lang, employee,
+                        Long.parseLong(data.substring(4)), data.startsWith("jra:"));
             } else if (employee != null) {
                 TeamMembership membership = resolveMembership(chatId, employee, lang);
                 if (membership == null) {
@@ -426,6 +440,54 @@ public class HrTelegramBot extends TelegramLongPollingBot {
             } catch (Exception e) {
                 log.debug("answerCallbackQuery failed", e);
             }
+        }
+    }
+
+    /**
+     * Handle a leader/manager tapping ✅ Approve or ❌ Reject on a Telegram join-request notification.
+     * Authorization is enforced inside the service against the request's <em>own</em> team (not the
+     * bot's currently selected team). The original message is edited in place to show the outcome and
+     * drop the buttons; the requester is notified through the normal event fan-out (web + Telegram).
+     */
+    private void handleJoinDecision(CallbackQuery cq, Long chatId, Language lang, Employee actor,
+                                    long requestId, boolean approve) {
+        Integer messageId = cq.getMessage() != null ? cq.getMessage().getMessageId() : null;
+        // getMessage() is a MaybeInaccessibleMessage; only a real (accessible) Message exposes the text.
+        String original = cq.getMessage() instanceof org.telegram.telegrambots.meta.api.objects.Message m
+                ? m.getText() : null;
+        try {
+            TeamJoinRequestDto dto = approve
+                    ? teamJoinRequestService.approveByEmployee(requestId, actor)
+                    : teamJoinRequestService.rejectByEmployee(requestId, actor);
+            String outcome = BotMessages.get(lang,
+                    approve ? "join_req_approved_done" : "join_req_rejected_done", dto.employeeName());
+            editDecision(chatId, messageId, original, outcome);
+        } catch (ResponseStatusException e) {
+            String key = e.getStatusCode().value() == HttpStatus.FORBIDDEN.value()
+                    ? "join_req_forbidden" : "join_req_gone";
+            editDecision(chatId, messageId, original, BotMessages.get(lang, key));
+        } catch (Exception e) {
+            log.error("Join-request decision failed", e);
+            editDecision(chatId, messageId, original, BotMessages.get(lang, "join_req_gone"));
+        }
+    }
+
+    /** Replaces the notification text with the outcome and removes the inline keyboard. */
+    private void editDecision(Long chatId, Integer messageId, String originalText, String outcome) {
+        if (messageId == null) {
+            send(chatId, outcome, null);
+            return;
+        }
+        String text = (originalText == null || originalText.isBlank() ? "" : originalText + "\n\n") + outcome;
+        try {
+            execute(EditMessageText.builder()
+                    .chatId(chatId.toString())
+                    .messageId(messageId)
+                    .text(text)
+                    .build());
+        } catch (Exception e) {
+            log.debug("Failed to edit join-decision message", e);
+            send(chatId, outcome, null);
         }
     }
 
@@ -719,7 +781,7 @@ public class HrTelegramBot extends TelegramLongPollingBot {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onTeamJoinRequested(JoinRequestEvents.TeamJoinRequested event) {
         if (!enabled) {
             return;
@@ -727,13 +789,21 @@ public class HrTelegramBot extends TelegramLongPollingBot {
         for (TeamMembership membership : membershipRepository.findLinkedByTeamIdAndRoleIn(
                 event.teamId(), List.of(Role.LEADER, Role.MANAGER))) {
             Employee manager = membership.getEmployee();
-            send(manager.getTelegramChatId(),
-                    BotMessages.get(manager.getLanguage(), "join_req_new", event.employeeName()), null);
+            Language lang = manager.getLanguage();
+            executeSafe(SendMessage.builder()
+                    .chatId(manager.getTelegramChatId().toString())
+                    .text(BotMessages.get(lang, "join_req_new", event.employeeName(), event.teamName()))
+                    .replyMarkup(InlineKeyboardMarkup.builder()
+                            .keyboard(List.of(List.of(
+                                    inlineBtn(BotMessages.get(lang, "btn_approve"), "jra:" + event.requestId()),
+                                    inlineBtn(BotMessages.get(lang, "btn_join_reject"), "jrr:" + event.requestId()))))
+                            .build())
+                    .build());
         }
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onTeamJoinApproved(JoinRequestEvents.TeamJoinApproved event) {
         if (!enabled) {
             return;
@@ -745,7 +815,7 @@ public class HrTelegramBot extends TelegramLongPollingBot {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onTeamJoinRejected(JoinRequestEvents.TeamJoinRejected event) {
         if (!enabled) {
             return;

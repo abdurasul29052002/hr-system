@@ -1,6 +1,8 @@
 package uz.sonic.hr.team;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.sonic.hr.common.enums.JoinRequestStatus;
@@ -13,6 +15,16 @@ public interface TeamJoinRequestRepository extends JpaRepository<TeamJoinRequest
     boolean existsByTeamIdAndEmployeeIdAndStatus(Long teamId, Long employeeId, JoinRequestStatus status);
 
     List<TeamJoinRequest> findAllByEmployeeIdOrderByCreatedAtDesc(Long employeeId);
+
+    /**
+     * Acquires a row-level write lock on the request so that two concurrent approve/reject decisions
+     * (e.g. one from Telegram, one from the web) are serialized: the second decision blocks here until
+     * the first commits, then re-reads the now non-PENDING status and is rejected. Root row only —
+     * no join fetch — to avoid locking the referenced employee/team rows.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from TeamJoinRequest r where r.id = :id")
+    Optional<TeamJoinRequest> lockById(@Param("id") Long id);
 
     @Query("""
             select r from TeamJoinRequest r
