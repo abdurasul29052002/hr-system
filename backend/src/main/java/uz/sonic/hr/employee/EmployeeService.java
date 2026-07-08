@@ -34,20 +34,18 @@ public class EmployeeService {
     private final TeamMembershipRepository membershipRepository;
     private final MemberLabelRepository labelRepository;
     private final PasswordEncoder passwordEncoder;
-    private final TeamService teamService;
 
     /**
-     * Self-registration. Like DigitalOcean, every new account gets its own personal team right away
-     * (the user becomes its LEADER), so nobody is ever forced through a "create a team" wall. Team
-     * names are NOT unique — this is just the user's default workspace; they can rename it, create
-     * more teams, or join others by invite. Runs in one transaction so the account + team are atomic.
+     * Self-registration: create a team-less account first. After login, the user chooses whether to
+     * join an existing team (by sending a request) or create their own team. This avoids forcing new
+     * users through an immediate team-creation wall.
      */
     @Transactional
     public Employee register(RegisterRequest request) {
         if (employeeRepository.existsByUsername(request.username())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
         }
-        Employee employee = employeeRepository.save(Employee.builder()
+        return employeeRepository.save(Employee.builder()
                 .fullName(request.fullName())
                 .username(request.username())
                 .password(passwordEncoder.encode(request.password()))
@@ -55,8 +53,6 @@ public class EmployeeService {
                 .language(request.language() != null ? request.language() : Language.EN)
                 .telegramLinkCode(generateUniqueLinkCode())
                 .build());
-        teamService.create(request.fullName(), employee);
-        return employee;
     }
 
     /** Creates a brand-new user and adds them to the actor's team. */

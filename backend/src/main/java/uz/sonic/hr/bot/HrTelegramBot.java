@@ -720,6 +720,44 @@ public class HrTelegramBot extends TelegramLongPollingBot {
 
     @Async
     @EventListener
+    public void onTeamJoinRequested(JoinRequestEvents.TeamJoinRequested event) {
+        if (!enabled) {
+            return;
+        }
+        for (TeamMembership membership : membershipRepository.findLinkedByTeamIdAndRoleIn(
+                event.teamId(), List.of(Role.LEADER, Role.MANAGER))) {
+            Employee manager = membership.getEmployee();
+            send(manager.getTelegramChatId(),
+                    BotMessages.get(manager.getLanguage(), "join_req_new", event.employeeName()), null);
+        }
+    }
+
+    @Async
+    @EventListener
+    public void onTeamJoinApproved(JoinRequestEvents.TeamJoinApproved event) {
+        if (!enabled) {
+            return;
+        }
+        employeeRepository.findById(event.employeeId())
+                .filter(e -> e.getTelegramChatId() != null)
+                .ifPresent(employee -> send(employee.getTelegramChatId(),
+                        BotMessages.get(employee.getLanguage(), "join_req_approved"), null));
+    }
+
+    @Async
+    @EventListener
+    public void onTeamJoinRejected(JoinRequestEvents.TeamJoinRejected event) {
+        if (!enabled) {
+            return;
+        }
+        employeeRepository.findById(event.employeeId())
+                .filter(e -> e.getTelegramChatId() != null)
+                .ifPresent(employee -> send(employee.getTelegramChatId(),
+                        BotMessages.get(employee.getLanguage(), "join_req_rejected"), null));
+    }
+
+    @Async
+    @EventListener
     public void onCommentAdded(CommentEvents.CommentAdded event) {
         if (!enabled) {
             return;

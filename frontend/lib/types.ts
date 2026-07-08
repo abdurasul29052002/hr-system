@@ -172,6 +172,26 @@ export interface TeamAdmin {
   createdAt: string;
 }
 
+export type JoinRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface TeamSearchResult {
+  id: number;
+  name: string;
+  memberCount: number;
+  createdAt: string;
+}
+
+export interface TeamJoinRequest {
+  id: number;
+  teamId: number;
+  teamName: string;
+  employeeId: number;
+  employeeName: string;
+  employeeUsername: string;
+  status: JoinRequestStatus;
+  createdAt: string;
+}
+
 export interface TaskComment {
   id: number;
   taskId: number;
@@ -215,6 +235,9 @@ export type NotificationType =
   | 'TASK_APPROVED'
   | 'TASK_REJECTED'
   | 'TASK_PROPOSED'
+  | 'TEAM_JOIN_REQUESTED'
+  | 'TEAM_JOIN_APPROVED'
+  | 'TEAM_JOIN_REJECTED'
   | 'INVITE_RECEIVED'
   | 'COMMENT_ADDED';
 

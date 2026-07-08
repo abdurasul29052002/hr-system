@@ -114,6 +114,28 @@ public final class Dtos {
     public record InviteInfo(String teamName, Role role, boolean alreadyMember) {
     }
 
+    /** Public team search result shown before a team-less user asks to join. */
+    public record TeamSearchDto(Long id, String name, long memberCount, Instant createdAt) {
+    }
+
+    public record TeamJoinRequestDto(Long id, Long teamId, String teamName,
+                                     Long employeeId, String employeeName, String employeeUsername,
+                                     JoinRequestStatus status, Instant createdAt) {
+
+        public static TeamJoinRequestDto from(TeamJoinRequest request) {
+            return new TeamJoinRequestDto(
+                    request.getId(),
+                    request.getTeam().getId(),
+                    request.getTeam().getName(),
+                    request.getEmployee().getId(),
+                    request.getEmployee().getFullName(),
+                    request.getEmployee().getUsername(),
+                    request.getStatus(),
+                    request.getCreatedAt()
+            );
+        }
+    }
+
     public record TagDto(Long id, String name, String color) {
 
         public static TagDto from(Tag tag) {

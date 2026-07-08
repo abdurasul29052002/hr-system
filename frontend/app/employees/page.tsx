@@ -7,7 +7,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { api } from '@/lib/api';
 import { getStoredEmployee, getCurrentMembership } from '@/lib/auth-client';
 import { isManagerRole } from '@/lib/types';
-import type { Invite, Language, Member, MemberLabel, Role } from '@/lib/types';
+import type { Invite, Language, Member, MemberLabel, Role, TeamJoinRequest } from '@/lib/types';
 import { Avatar, Badge, Button, Card, Field, Input, Modal, PageHeader, PageLoader, Select } from '@/components/ui';
 import '@/lib/i18n';
 
@@ -31,6 +31,7 @@ export default function EmployeesPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const [members, setMembers] = useState<Member[]>([]);
+  const [joinRequests, setJoinRequests] = useState<TeamJoinRequest[]>([]);
   const [labels, setLabels] = useState<MemberLabel[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -45,15 +46,20 @@ export default function EmployeesPage() {
 
   const load = useCallback(async () => {
     try {
-      const [m, l] = await Promise.all([api.members(), api.memberLabels()]);
+      const [m, l, reqs] = await Promise.all([
+        api.members(),
+        api.memberLabels(),
+        isManager ? api.pendingTeamJoinRequests().catch(() => []) : Promise.resolve([]),
+      ]);
       setMembers(m);
       setLabels(l);
+      setJoinRequests(reqs);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isManager]);
 
   useEffect(() => {
     if (!isManager) { router.push('/tasks'); return; }
@@ -79,6 +85,28 @@ export default function EmployeesPage() {
           </>
         }
       />
+
+      {joinRequests.length > 0 && (
+        <Card className="mb-4 overflow-hidden border-amber-200">
+          <div className="border-b border-amber-100 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800">
+            📥 {t('join.requests')} ({joinRequests.length})
+          </div>
+          <div className="divide-y divide-slate-100">
+            {joinRequests.map((req) => (
+              <div key={req.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-slate-900">{req.employeeName}</p>
+                  <p className="text-xs text-slate-400">@{req.employeeUsername}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="success" onClick={() => run(() => api.approveTeamJoinRequest(req.id))}>{t('join.approve')}</Button>
+                  <Button size="sm" variant="danger" onClick={() => run(() => api.rejectTeamJoinRequest(req.id))}>{t('join.reject')}</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="overflow-hidden">
         <table className="min-w-full divide-y divide-slate-100">

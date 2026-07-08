@@ -86,6 +86,12 @@ export const api = {
       body: JSON.stringify({ oldPassword, newPassword }),
     }),
 
+  teamJoinSearch: (q: string) => request<{ id: number; name: string; memberCount: number; createdAt: string }[]>(`/api/team-join-requests/search?q=${encodeURIComponent(q)}`),
+  createTeamJoinRequest: (teamId: number) => request<{ id: number; teamId: number; teamName: string; employeeId: number; employeeName: string; employeeUsername: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; createdAt: string }>(`/api/team-join-requests/${teamId}`, { method: 'POST' }),
+  pendingTeamJoinRequests: () => request<{ id: number; teamId: number; teamName: string; employeeId: number; employeeName: string; employeeUsername: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; createdAt: string }[]>('/api/team-join-requests'),
+  approveTeamJoinRequest: (requestId: number) => request<{ id: number; teamId: number; teamName: string; employeeId: number; employeeName: string; employeeUsername: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; createdAt: string }>(`/api/team-join-requests/${requestId}/approve`, { method: 'POST' }),
+  rejectTeamJoinRequest: (requestId: number) => request<{ id: number; teamId: number; teamName: string; employeeId: number; employeeName: string; employeeUsername: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; createdAt: string }>(`/api/team-join-requests/${requestId}/reject`, { method: 'POST' }),
+
   createTeam: (name: string) => request<MyTeam>('/api/teams', { method: 'POST', body: JSON.stringify({ name }) }),
   myTeams: () => request<MyTeam[]>('/api/teams/my'),
   deleteTeam: (teamId: number) => request<void>(`/api/teams/${teamId}`, { method: 'DELETE' }),

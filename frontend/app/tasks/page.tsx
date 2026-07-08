@@ -61,8 +61,8 @@ export default function TasksPage() {
   }, [load, employee?.admin, router]);
 
   useEffect(() => {
+    api.members().then(setMembers).catch(() => undefined);
     if (isManager) {
-      api.members().then(setMembers).catch(() => undefined);
       api.tags().then(setTags).catch(() => undefined);
     }
   }, [isManager]);
@@ -352,7 +352,7 @@ function TaskDetailModal({ task, isManager, myId, members, onClose, onEdit, onAc
               </button>
             ))}
           </div>
-          {tab === 'comments' ? <TaskCommentSection taskId={task.id} /> : <TaskAttachmentSection taskId={task.id} />}
+          {tab === 'comments' ? <TaskCommentSection taskId={task.id} members={members} /> : <TaskAttachmentSection taskId={task.id} />}
         </div>
       </div>
     </Modal>

@@ -155,7 +155,21 @@
     "authHint": "Taklifni qabul qilish uchun kiring yoki ro'yxatdan o'ting.",
     "hint": "Sizni \"{{team}}\" jamoasiga {{role}} sifatida taklif qilishdi.",
     "alreadyMember": "Siz allaqachon \"{{team}}\" jamoasidasiz.",
-    "submit": "Qo'shilish"
+    "submit": "Qo'shilish",
+    "chooseTitle": "Jamoaga qo'shiling yoki o'zingiznikini yarating",
+    "chooseHint": "Agar jamoangiz allaqachon mavjud bo'lsa, unga qo'shilish so'rovini yuboring. Aks holda o'zingizning ish maydoningizni yarating.",
+    "joinTeam": "Jamoaga qo'shilish",
+    "requestHint": "Mavjud jamoani qidiring va leaderiga so'rov yuboring.",
+    "searchHint": "Jamoani qidirish uchun kamida 2 ta harf kiriting",
+    "searchPlaceholder": "Jamoa nomi",
+    "noTeamsFound": "Jamoa topilmadi",
+    "requestAccess": "Qo'shilish so'rovi",
+    "requestSent": "So'rov yuborildi — leader ko'rib chiqadi.",
+    "goOwnTeam": "O'z jamoamga o'tish",
+    "goOwnTeamHint": "Agar yangi jamoa boshlayotgan bo'lsangiz, o'z ish maydoningizni yarating.",
+    "requests": "Qo'shilish so'rovlari",
+    "approve": "Tasdiqlash",
+    "reject": "Rad etish"
   },
   "admin": {
     "title": "Admin panel",

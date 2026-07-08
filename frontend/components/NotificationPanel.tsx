@@ -109,6 +109,14 @@ export default function NotificationPanel() {
         return '✅';
       case 'TASK_REJECTED':
         return '🔄';
+      case 'TASK_PROPOSED':
+        return '📝';
+      case 'TEAM_JOIN_REQUESTED':
+        return '📥';
+      case 'TEAM_JOIN_APPROVED':
+        return '✅';
+      case 'TEAM_JOIN_REJECTED':
+        return '❌';
       case 'INVITE_RECEIVED':
         return '📧';
       default:

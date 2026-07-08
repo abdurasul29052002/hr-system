@@ -58,7 +58,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
     if (!emp.admin && emp.memberships.length === 0) {
-      router.push('/create-team');
+      router.push('/team-access');
       return;
     }
     setEmployee(emp);
@@ -87,7 +87,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const me = await api.me();
       storeEmployee(me);
       if (me.memberships.length === 0) {
-        window.location.href = '/create-team';
+        window.location.href = '/team-access';
       } else {
         setCurrentTeamId(me.memberships[0].teamId);
         window.location.href = '/tasks';

@@ -133,6 +133,71 @@ public class NotificationEventListener {
     @EventListener
     @Async
     @Transactional
+    public void onTeamJoinRequested(JoinRequestEvents.TeamJoinRequested event) {
+        try {
+            Employee requester = employeeRepository.findById(event.employeeId()).orElse(null);
+            if (requester == null) return;
+            List<TeamMembership> approvers = membershipRepository.findActiveByTeamIdAndRoleIn(
+                    event.teamId(), List.of(Role.LEADER, Role.MANAGER));
+            for (TeamMembership m : approvers) {
+                notificationService.createNotification(
+                        NotificationType.TEAM_JOIN_REQUESTED,
+                        m.getEmployee(),
+                        "New join request",
+                        requester.getFullName() + " wants to join your team.",
+                        null, null, null, requester
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to create notification for TeamJoinRequested", e);
+        }
+    }
+
+    @EventListener
+    @Async
+    @Transactional
+    public void onTeamJoinApproved(JoinRequestEvents.TeamJoinApproved event) {
+        try {
+            Employee requester = employeeRepository.findById(event.employeeId()).orElse(null);
+            Employee actor = employeeRepository.findById(event.actorId()).orElse(null);
+            if (requester != null && actor != null) {
+                notificationService.createNotification(
+                        NotificationType.TEAM_JOIN_APPROVED,
+                        requester,
+                        "Join request approved",
+                        actor.getFullName() + " approved your request to join the team.",
+                        null, null, null, actor
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to create notification for TeamJoinApproved", e);
+        }
+    }
+
+    @EventListener
+    @Async
+    @Transactional
+    public void onTeamJoinRejected(JoinRequestEvents.TeamJoinRejected event) {
+        try {
+            Employee requester = employeeRepository.findById(event.employeeId()).orElse(null);
+            Employee actor = employeeRepository.findById(event.actorId()).orElse(null);
+            if (requester != null && actor != null) {
+                notificationService.createNotification(
+                        NotificationType.TEAM_JOIN_REJECTED,
+                        requester,
+                        "Join request rejected",
+                        actor.getFullName() + " declined your request to join the team.",
+                        null, null, null, actor
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to create notification for TeamJoinRejected", e);
+        }
+    }
+
+    @EventListener
+    @Async
+    @Transactional
     public void onCommentAdded(CommentEvents.CommentAdded event) {
         try {
             Task task = taskRepository.findById(event.taskId()).orElse(null);

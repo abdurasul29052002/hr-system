@@ -1,0 +1,62 @@
+databaseChangeLog:
+  - changeSet:
+      id: v1.2-create-team-join-requests
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            tableName: team_join_requests
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_team_join_requests
+                    nullable: false
+              - column:
+                  name: team_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: employee_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: DATETIME
+              - column:
+                  name: decided_at
+                  type: DATETIME
+        - addForeignKeyConstraint:
+            baseTableName: team_join_requests
+            baseColumnNames: team_id
+            constraintName: FK_TEAM_JOIN_REQUESTS_ON_TEAM
+            referencedTableName: teams
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: team_join_requests
+            baseColumnNames: employee_id
+            constraintName: FK_TEAM_JOIN_REQUESTS_ON_EMPLOYEE
+            referencedTableName: employees
+            referencedColumnNames: id
+        - createIndex:
+            tableName: team_join_requests
+            indexName: idx_team_join_requests_team_status
+            columns:
+              - column: { name: team_id }
+              - column: { name: status }
+        - createIndex:
+            tableName: team_join_requests
+            indexName: idx_team_join_requests_employee_status
+            columns:
+              - column: { name: employee_id }
+              - column: { name: status }

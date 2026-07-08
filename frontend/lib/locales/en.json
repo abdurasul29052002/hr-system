@@ -155,7 +155,21 @@
     "authHint": "Sign in or create an account to accept the invitation.",
     "hint": "You are invited to join \"{{team}}\" as {{role}}.",
     "alreadyMember": "You are already a member of \"{{team}}\".",
-    "submit": "Join team"
+    "submit": "Join team",
+    "chooseTitle": "Join a team or create your own",
+    "chooseHint": "If your team already exists, ask to join it. Otherwise create your own workspace.",
+    "joinTeam": "Join a team",
+    "requestHint": "Search for an existing team and send a request to its leader.",
+    "searchHint": "Type at least 2 letters to search teams",
+    "searchPlaceholder": "Team name",
+    "noTeamsFound": "No teams found",
+    "requestAccess": "Request to join",
+    "requestSent": "Request sent — a leader will review it.",
+    "goOwnTeam": "Go to own team",
+    "goOwnTeamHint": "Create your own workspace if you are starting a new team.",
+    "requests": "Join requests",
+    "approve": "Approve",
+    "reject": "Reject"
   },
   "admin": {
     "title": "Admin panel",

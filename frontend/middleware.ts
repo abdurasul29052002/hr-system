@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const publicPaths = ['/', '/login', '/register'];
+const publicPaths = ['/', '/login', '/register', '/team-access'];
 const publicPathPrefixes = ['/join/'];
 
 export function middleware(request: NextRequest) {

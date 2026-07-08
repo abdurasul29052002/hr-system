@@ -1,19 +1,30 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '@/lib/api';
 import { getStoredEmployee } from '@/lib/auth-client';
-import type { TaskComment, CommentRequest } from '@/lib/types';
+import type { Member, TaskComment, CommentRequest } from '@/lib/types';
 import MarkdownRenderer from './MarkdownRenderer';
 import { Avatar } from './ui';
 import '@/lib/i18n';
 
 interface TaskCommentSectionProps {
   taskId: number;
+  members: Member[];
 }
 
-export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) {
+type MentionState = {
+  open: boolean;
+  query: string;
+  start: number;
+  end: number;
+  activeIndex: number;
+};
+
+const CLOSED_MENTION: MentionState = { open: false, query: '', start: -1, end: -1, activeIndex: 0 };
+
+export default function TaskCommentSection({ taskId, members }: TaskCommentSectionProps) {
   const { t } = useTranslation();
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,9 +35,13 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const newTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [newCommentTab, setNewCommentTab] = useState<'write' | 'preview'>('write');
   const [editTab, setEditTab] = useState<'write' | 'preview'>('write');
+  const [newMention, setNewMention] = useState<MentionState>(CLOSED_MENTION);
+  const [editMention, setEditMention] = useState<MentionState>(CLOSED_MENTION);
 
   const currentEmployee = getStoredEmployee();
 
@@ -34,10 +49,23 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
     loadComments();
   }, [taskId]);
 
-  // Keep the newest message in view, like a chat.
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'nearest' });
   }, [comments.length]);
+
+  const mentionableMembers = useMemo(
+    () => members.slice().sort((a, b) => a.fullName.localeCompare(b.fullName)),
+    [members],
+  );
+
+  const filteredNewMembers = useMemo(
+    () => filterMentionable(mentionableMembers, newMention.query),
+    [mentionableMembers, newMention.query],
+  );
+  const filteredEditMembers = useMemo(
+    () => filterMentionable(mentionableMembers, editMention.query),
+    [mentionableMembers, editMention.query],
+  );
 
   const loadComments = async () => {
     try {
@@ -61,6 +89,7 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
       setNewComment('');
       setSelectedFiles([]);
       setNewCommentTab('write');
+      setNewMention(CLOSED_MENTION);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to add comment');
@@ -89,6 +118,7 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
     setEditingId(comment.id);
     setEditContent(comment.content);
     setEditTab('write');
+    setEditMention(CLOSED_MENTION);
   };
 
   const handleSaveEdit = async (commentId: number) => {
@@ -99,6 +129,7 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
       setComments(comments.map((c) => (c.id === commentId ? updated : c)));
       setEditingId(null);
       setEditContent('');
+      setEditMention(CLOSED_MENTION);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to update comment');
     }
@@ -108,6 +139,7 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
     setEditingId(null);
     setEditContent('');
     setEditTab('write');
+    setEditMention(CLOSED_MENTION);
   };
 
   const handleDelete = async (commentId: number) => {
@@ -127,6 +159,69 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
     return sameDay ? time : `${d.toLocaleDateString([], { day: '2-digit', month: 'short' })} · ${time}`;
   };
 
+  const onTextareaChange = (
+    value: string,
+    setValue: (v: string) => void,
+    setMention: (m: MentionState) => void,
+    textarea: HTMLTextAreaElement,
+  ) => {
+    setValue(value);
+    setMention(computeMentionState(value, textarea.selectionStart));
+  };
+
+  const handleTextareaKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+    mention: MentionState,
+    filtered: Member[],
+    applyMention: (member: Member) => void,
+    submitShortcut: () => void,
+    setMention: (m: MentionState) => void,
+  ) => {
+    if (mention.open && filtered.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMention({ ...mention, activeIndex: (mention.activeIndex + 1) % filtered.length });
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMention({ ...mention, activeIndex: (mention.activeIndex - 1 + filtered.length) % filtered.length });
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        applyMention(filtered[Math.min(mention.activeIndex, filtered.length - 1)]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMention(CLOSED_MENTION);
+        return;
+      }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submitShortcut();
+  };
+
+  const applyMention = (
+    member: Member,
+    content: string,
+    setContent: (v: string) => void,
+    mention: MentionState,
+    setMention: (m: MentionState) => void,
+    textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+  ) => {
+    const next = `${content.slice(0, mention.start)}@${member.username} ${content.slice(mention.end)}`;
+    const caret = mention.start + member.username.length + 2;
+    setContent(next);
+    setMention(CLOSED_MENTION);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(caret, caret);
+    });
+  };
+
   return (
     <div className="space-y-3">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
@@ -139,7 +234,6 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
         )}
       </h3>
 
-      {/* Chat canvas */}
       <div className="max-h-[24rem] space-y-3 overflow-y-auto rounded-xl bg-slate-50 p-3">
         {loading ? (
           <p className="py-6 text-center text-sm text-slate-400">{t('common.loading')}</p>
@@ -160,13 +254,27 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
                 <div key={comment.id} className="rounded-2xl border border-brand-200 bg-white p-2 shadow-sm">
                   <TabToggle tab={editTab} onChange={setEditTab} t={t} />
                   {editTab === 'write' ? (
-                    <textarea
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      className="mt-2 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                      rows={4}
-                      placeholder="**Bold** *italic* `code` [link](url) @username"
-                    />
+                    <div className="relative mt-2">
+                      <textarea
+                        ref={editTextareaRef}
+                        value={editContent}
+                        onChange={(e) => onTextareaChange(e.target.value, setEditContent, setEditMention, e.target)}
+                        onKeyDown={(e) => handleTextareaKeyDown(
+                          e,
+                          editMention,
+                          filteredEditMembers,
+                          (member) => applyMention(member, editContent, setEditContent, editMention, setEditMention, editTextareaRef),
+                          () => handleSaveEdit(comment.id),
+                          setEditMention,
+                        )}
+                        className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                        rows={4}
+                        placeholder="**Bold** *italic* `code` [link](url) @username"
+                      />
+                      {editMention.open && filteredEditMembers.length > 0 && (
+                        <MentionDropdown members={filteredEditMembers} activeIndex={editMention.activeIndex} onPick={(member) => applyMention(member, editContent, setEditContent, editMention, setEditMention, editTextareaRef)} />
+                      )}
+                    </div>
                   ) : (
                     <div className="mt-2 min-h-[80px] rounded-lg border border-slate-200 bg-slate-50 p-3">
                       {editContent.trim() ? <MarkdownRenderer content={editContent} /> : <p className="text-sm text-slate-400">—</p>}
@@ -191,19 +299,10 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
             return (
               <div key={comment.id} className={`group flex items-end gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
                 {!mine && <Avatar name={comment.authorName} size={8} />}
-
                 <div className={`flex min-w-0 max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
                   {!mine && <span className="mb-0.5 px-1 text-xs font-semibold text-slate-600">{comment.authorName}</span>}
-
-                  <div
-                    className={`relative w-fit rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
-                      mine
-                        ? 'rounded-br-md bg-brand-100 text-slate-800'
-                        : 'rounded-bl-md border border-slate-200 bg-white text-slate-800'
-                    }`}
-                  >
+                  <div className={`relative w-fit rounded-2xl px-3.5 py-2 text-sm shadow-sm ${mine ? 'rounded-br-md bg-brand-100 text-slate-800' : 'rounded-bl-md border border-slate-200 bg-white text-slate-800'}`}>
                     <MarkdownRenderer content={comment.content} />
-
                     {comment.attachments && comment.attachments.length > 0 && (
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         {comment.attachments.map((attachment) => (
@@ -212,9 +311,7 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
                             href={attachment.downloadUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`block overflow-hidden rounded-lg border ${
-                              mine ? 'border-brand-200 hover:border-brand-300' : 'border-slate-200 hover:border-slate-300'
-                            }`}
+                            className={`block overflow-hidden rounded-lg border ${mine ? 'border-brand-200 hover:border-brand-300' : 'border-slate-200 hover:border-slate-300'}`}
                           >
                             {attachment.mimeType.startsWith('image/') ? (
                               <img src={attachment.downloadUrl} alt={attachment.fileName} className="h-28 w-full object-cover" />
@@ -234,7 +331,6 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
                       </div>
                     )}
                   </div>
-
                   <div className={`mt-0.5 flex items-center gap-2 px-1 ${mine ? 'flex-row-reverse' : ''}`}>
                     <span className="text-[11px] text-slate-400" title={new Date(comment.createdAt).toLocaleString()}>
                       {formatTime(comment.createdAt)}
@@ -243,14 +339,10 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
                     {mine && (
                       <span className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                         <button onClick={() => handleEdit(comment)} title={t('comments.edit')} className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
                         <button onClick={() => handleDelete(comment.id)} title={t('comments.delete')} className="rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600">
-                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </span>
                     )}
@@ -263,7 +355,6 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
         <div ref={endRef} />
       </div>
 
-      {/* Composer */}
       <form onSubmit={handleSubmit}>
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/20">
           <div className="flex items-center gap-1 border-b border-slate-100 px-2 py-1.5">
@@ -279,17 +370,28 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
           </div>
 
           {newCommentTab === 'write' ? (
-            <textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSubmit(e);
-              }}
-              placeholder={t('comments.addPlaceholder')}
-              className="max-h-40 min-h-[64px] w-full resize-y border-0 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-0"
-              rows={2}
-              disabled={submitting}
-            />
+            <div className="relative">
+              <textarea
+                ref={newTextareaRef}
+                value={newComment}
+                onChange={(e) => onTextareaChange(e.target.value, setNewComment, setNewMention, e.target)}
+                onKeyDown={(e) => handleTextareaKeyDown(
+                  e,
+                  newMention,
+                  filteredNewMembers,
+                  (member) => applyMention(member, newComment, setNewComment, newMention, setNewMention, newTextareaRef),
+                  () => handleSubmit(e),
+                  setNewMention,
+                )}
+                placeholder={t('comments.addPlaceholder')}
+                className="max-h-40 min-h-[64px] w-full resize-y border-0 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                rows={2}
+                disabled={submitting}
+              />
+              {newMention.open && filteredNewMembers.length > 0 && (
+                <MentionDropdown members={filteredNewMembers} activeIndex={newMention.activeIndex} onPick={(member) => applyMention(member, newComment, setNewComment, newMention, setNewMention, newTextareaRef)} />
+              )}
+            </div>
           ) : (
             <div className="min-h-[64px] px-3 py-2.5">
               {newComment.trim() ? <MarkdownRenderer content={newComment} /> : <p className="text-sm text-slate-400">—</p>}
@@ -326,7 +428,43 @@ export default function TaskCommentSection({ taskId }: TaskCommentSectionProps) 
   );
 }
 
-/** Small Write / Preview segmented toggle shared by the composer and the edit box. */
+function filterMentionable(members: Member[], query: string) {
+  const q = query.trim().toLowerCase();
+  return members
+    .filter((m) => !q || m.username.toLowerCase().includes(q) || m.fullName.toLowerCase().includes(q))
+    .slice(0, 6);
+}
+
+function computeMentionState(content: string, caret: number): MentionState {
+  const before = content.slice(0, caret);
+  const at = before.lastIndexOf('@');
+  if (at === -1) return CLOSED_MENTION;
+  const chunk = before.slice(at + 1);
+  if (chunk.length > 24 || /\s/.test(chunk) || /[^a-zA-Z0-9_]/.test(chunk)) return CLOSED_MENTION;
+  return { open: true, query: chunk, start: at, end: caret, activeIndex: 0 };
+}
+
+function MentionDropdown({ members, activeIndex, onPick }: { members: Member[]; activeIndex: number; onPick: (member: Member) => void }) {
+  return (
+    <div className="absolute left-3 right-3 z-20 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+      {members.map((m, idx) => (
+        <button
+          key={m.employeeId}
+          type="button"
+          onClick={() => onPick(m)}
+          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${idx === activeIndex ? 'bg-brand-50' : 'hover:bg-slate-50'}`}
+        >
+          <Avatar name={m.fullName} size={6} />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-slate-900">{m.fullName}</p>
+            <p className="truncate text-xs text-slate-400">@{m.username}</p>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function TabToggle({
   tab,
   onChange,
