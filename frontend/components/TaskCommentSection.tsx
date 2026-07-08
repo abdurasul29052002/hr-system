@@ -356,7 +356,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/20">
+        <div className="rounded-xl border border-slate-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/20">
           <div className="flex items-center gap-1 border-b border-slate-100 px-2 py-1.5">
             <TabToggle tab={newCommentTab} onChange={setNewCommentTab} t={t} />
             <div className="flex-1" />
@@ -446,7 +446,7 @@ function computeMentionState(content: string, caret: number): MentionState {
 
 function MentionDropdown({ members, activeIndex, onPick }: { members: Member[]; activeIndex: number; onPick: (member: Member) => void }) {
   return (
-    <div className="absolute left-3 right-3 z-20 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+    <div className="absolute bottom-full left-3 right-3 z-30 mb-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
       {members.map((m, idx) => (
         <button
           key={m.employeeId}

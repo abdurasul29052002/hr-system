@@ -80,10 +80,22 @@ class TeamTaskFlowIT extends AbstractPostgresIT {
 
     @Test
     void creatingTaskWithoutTeamHeaderAndMultipleContexts_isRejected() throws Exception {
-        // Registration auto-creates a personal team, so create a second one: with two teams and no
-        // X-Team-Id header the request is ambiguous and must be rejected.
+        // Self-registration creates a team-less account, so create two teams: with several teams and
+        // no X-Team-Id header the request is ambiguous and must be rejected.
         String token = registerAndToken("flow_noteam");
-        createTeam(token, "Second Team");
+        createTeam(token, "First Context Team");
+        createTeam(token, "Second Context Team");
+        mockMvc.perform(post("/api/tasks")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"title\":\"orphan\"}"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void creatingTaskWithNoTeamAtAll_isRejected() throws Exception {
+        // A brand-new team-less user cannot create a task until they join or create a team.
+        String token = registerAndToken("flow_teamless");
         mockMvc.perform(post("/api/tasks")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
