@@ -11,7 +11,7 @@ import { Avatar, Badge, Button, Card, EmptyState, Modal, PageHeader, PageLoader,
 import TicketConversation from '@/components/TicketConversation';
 import '@/lib/i18n';
 
-const STATUS_COLOR: Record<TicketStatus, 'blue' | 'amber' | 'green' | 'slate'> = { OPEN: 'blue', IN_PROGRESS: 'amber', RESOLVED: 'green', CLOSED: 'slate' };
+const STATUS_COLOR: Record<TicketStatus, 'red' | 'amber' | 'green' | 'slate'> = { OPEN: 'red', IN_PROGRESS: 'amber', RESOLVED: 'green', CLOSED: 'slate' };
 const PRIO_COLOR: Record<TicketPriority, 'slate' | 'blue' | 'amber' | 'red'> = { LOW: 'slate', MEDIUM: 'blue', HIGH: 'amber', URGENT: 'red' };
 
 export default function AdminPage() {
