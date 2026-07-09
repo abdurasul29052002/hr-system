@@ -134,7 +134,6 @@ public class NotificationEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
-    @Transactional
     public void onTeamJoinRequested(JoinRequestEvents.TeamJoinRequested event) {
         try {
             Employee requester = employeeRepository.findById(event.employeeId()).orElse(null);
@@ -157,7 +156,6 @@ public class NotificationEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
-    @Transactional
     public void onTeamJoinApproved(JoinRequestEvents.TeamJoinApproved event) {
         try {
             Employee requester = employeeRepository.findById(event.employeeId()).orElse(null);
@@ -178,7 +176,6 @@ public class NotificationEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
-    @Transactional
     public void onTeamJoinRejected(JoinRequestEvents.TeamJoinRejected event) {
         try {
             Employee requester = employeeRepository.findById(event.employeeId()).orElse(null);
