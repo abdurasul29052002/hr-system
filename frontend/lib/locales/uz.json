@@ -275,7 +275,11 @@
     "changePassword": "Parolni o'zgartirish",
     "oldPassword": "Joriy parol",
     "newPassword": "Yangi parol",
-    "passwordChanged": "Parol o'zgartirildi"
+    "passwordChanged": "Parol o'zgartirildi",
+    "deleteAccount": "Hisobni o'chirish",
+    "deleteWarning": "Bu hisobingizni o'chiradi va shaxsiy ma'lumotlaringizni olib tashlaydi. Siz yagona a'zo bo'lgan jamoalar o'chiriladi. Buni qaytarib bo'lmaydi.",
+    "confirmPassword": "Parolni tasdiqlang",
+    "deleteConfirm": "Hisobimni o'chirish"
   },
   "common": {
     "cancel": "Bekor qilish",

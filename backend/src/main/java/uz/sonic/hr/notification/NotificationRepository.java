@@ -18,4 +18,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.employee.id = :employeeId AND n.isRead = false")
     void markAllAsReadByEmployeeId(Long employeeId);
+
+    /** Removes every notification addressed to the given recipient (used on account deletion). */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.employee.id = :employeeId")
+    void deleteByEmployeeId(Long employeeId);
 }

@@ -86,6 +86,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ oldPassword, newPassword }),
     }),
+  deleteAccount: (password: string) =>
+    request<void>('/api/auth/delete-account', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
 
   teamJoinSearch: (q: string) => request<{ id: number; name: string; memberCount: number; createdAt: string }[]>(`/api/team-join-requests/search?q=${encodeURIComponent(q)}`),
   createTeamJoinRequest: (teamId: number) => request<{ id: number; teamId: number; teamName: string; employeeId: number; employeeName: string; employeeUsername: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; createdAt: string }>(`/api/team-join-requests/${teamId}`, { method: 'POST' }),

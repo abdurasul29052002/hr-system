@@ -16,12 +16,15 @@ import uz.sonic.hr.team.Team;
 import uz.sonic.hr.team.TeamMembership;
 import uz.sonic.hr.employee.EmployeeRepository;
 import uz.sonic.hr.team.TeamMembershipRepository;
+import uz.sonic.hr.team.TeamJoinRequestRepository;
+import uz.sonic.hr.notification.NotificationRepository;
 import uz.sonic.hr.common.dto.Dtos.*;
 
 import java.security.SecureRandom;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +37,9 @@ public class EmployeeService {
     private final TeamMembershipRepository membershipRepository;
     private final MemberLabelRepository labelRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TeamService teamService;
+    private final TeamJoinRequestRepository joinRequestRepository;
+    private final NotificationRepository notificationRepository;
 
     /**
      * Self-registration: create a team-less account first. After login, the user chooses whether to
@@ -143,6 +149,48 @@ public class EmployeeService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The team must keep at least one leader");
         }
         membershipRepository.delete(target);
+    }
+
+    /**
+     * Self-service account deletion — deactivate + anonymize. The employee ROW is kept: their authored
+     * tasks/comments point at it via NOT-NULL FKs (created_by / author_id), so a hard delete would
+     * either break those or wipe shared-team history. Instead we delete the teams where they are the
+     * only member (full cascade), leave every other team (blocking if they are its last leader — they
+     * must hand it over first), drop their own join requests and the notifications addressed to them,
+     * then scrub personal data and disable login (username is freed as {@code deleted_<id>}).
+     */
+    @Transactional
+    public void deleteOwnAccount(Employee me) {
+        List<TeamMembership> memberships = membershipRepository.findAllByEmployeeIdOrderByJoinedAtAsc(me.getId());
+        // Validate everything first so a block leaves the account fully intact.
+        for (TeamMembership m : memberships) {
+            boolean shared = membershipRepository.countByTeamId(m.getTeam().getId()) > 1;
+            if (shared && m.getRole() == Role.LEADER
+                    && membershipRepository.countByTeamIdAndRole(m.getTeam().getId(), Role.LEADER) <= 1) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "You are the last leader of \"" + m.getTeam().getName()
+                                + "\". Transfer leadership or delete this team before deleting your account.");
+            }
+        }
+        // Apply: solo teams vanish entirely; shared teams simply lose this membership.
+        for (TeamMembership m : memberships) {
+            if (membershipRepository.countByTeamId(m.getTeam().getId()) <= 1) {
+                teamService.deleteTeam(m.getTeam().getId());
+            } else {
+                membershipRepository.delete(m);
+            }
+        }
+        joinRequestRepository.deleteByEmployeeId(me.getId());
+        notificationRepository.deleteByEmployeeId(me.getId());
+        me.setActive(false);
+        me.setFullName("Deleted user");
+        me.setUsername("deleted_" + me.getId());
+        me.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        me.setPhone(null);
+        me.setTelegramChatId(null);
+        me.setTelegramLinkCode(null);
+        me.setBotTeamId(null);
+        employeeRepository.save(me);
     }
 
     /** Unlinks Telegram and issues a fresh link code for a member of the actor's team. */

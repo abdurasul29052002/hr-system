@@ -445,11 +445,17 @@ function computeMentionState(content: string, caret: number): MentionState {
 }
 
 function MentionDropdown({ members, activeIndex, onPick }: { members: MentionMember[]; activeIndex: number; onPick: (member: MentionMember) => void }) {
+  const activeRef = useRef<HTMLButtonElement>(null);
+  // Keep the keyboard-highlighted row in view when navigating past the visible area.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
   return (
     <div className="absolute bottom-full left-3 right-3 z-30 mb-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
       {members.map((m, idx) => (
         <button
           key={m.employeeId}
+          ref={idx === activeIndex ? activeRef : null}
           type="button"
           onClick={() => onPick(m)}
           className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${idx === activeIndex ? 'bg-brand-50' : 'hover:bg-slate-50'}`}

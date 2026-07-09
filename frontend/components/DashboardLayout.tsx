@@ -46,6 +46,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [teamOpen, setTeamOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
+  const [delOpen, setDelOpen] = useState(false);
   const [tgOpen, setTgOpen] = useState(false);
 
   const teamRef = useClickOutside(() => setTeamOpen(false));
@@ -217,9 +218,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <button onClick={() => { setPwOpen(true); setUserOpen(false); }} className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
                   {t('account.changePassword')}
                 </button>
-                <button onClick={handleLogout} className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+                <button onClick={handleLogout} className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
                   {t('nav.logout')}
                 </button>
+                {!isAdmin && (
+                  <button onClick={() => { setDelOpen(true); setUserOpen(false); }} className="block w-full border-t border-slate-100 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+                    {t('account.deleteAccount')}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -253,6 +259,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
 
       {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
+      {delOpen && <DeleteAccountModal onClose={() => setDelOpen(false)} onDeleted={handleLogout} />}
     </div>
   );
 }
@@ -299,6 +306,46 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
           </div>
         </form>
       )}
+    </Modal>
+  );
+}
+
+function DeleteAccountModal({ onClose, onDeleted }: { onClose: () => void; onDeleted: () => void }) {
+  const { t } = useTranslation();
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      await api.deleteAccount(password);
+      onDeleted(); // clears auth + redirects; the account no longer exists
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={t('account.deleteAccount')} size="sm">
+      <form onSubmit={submit} className="space-y-3">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {t('account.deleteWarning')}
+        </div>
+        <Field label={t('account.confirmPassword')}>
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
+        </Field>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="secondary" onClick={onClose}>{t('tasks.close')}</Button>
+          <Button type="submit" variant="danger" disabled={busy || !password}>
+            {busy ? '…' : t('account.deleteConfirm')}
+          </Button>
+        </div>
+      </form>
     </Modal>
   );
 }

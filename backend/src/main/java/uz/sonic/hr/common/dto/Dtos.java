@@ -235,6 +235,10 @@ public final class Dtos {
     public record ChangePasswordRequest(@NotBlank String oldPassword, @NotBlank String newPassword) {
     }
 
+    /** Self-service account deletion — the current password re-confirms the destructive action. */
+    public record DeleteAccountRequest(@NotBlank String password) {
+    }
+
     public record UpdateLanguageRequest(@NotNull Language language) {
     }
 

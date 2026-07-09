@@ -76,6 +76,20 @@ public class AuthController {
         return save(principal);
     }
 
+    /** Self-service account deletion (deactivate + anonymize). Password re-confirms the action. */
+    @PostMapping("/delete-account")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(@Valid @RequestBody DeleteAccountRequest request) {
+        UserDetailsImpl principal = principal();
+        if (!(principal instanceof Employee employee)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "The project owner account cannot be deleted here");
+        }
+        if (!passwordEncoder.matches(request.password(), employee.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is incorrect");
+        }
+        employeeService.deleteOwnAccount(employee);
+    }
+
     @PostMapping("/language")
     public EmployeeDto updateLanguage(@Valid @RequestBody UpdateLanguageRequest request) {
         UserDetailsImpl principal = principal();

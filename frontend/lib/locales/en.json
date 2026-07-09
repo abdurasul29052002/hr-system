@@ -275,7 +275,11 @@
     "changePassword": "Change password",
     "oldPassword": "Current password",
     "newPassword": "New password",
-    "passwordChanged": "Password changed"
+    "passwordChanged": "Password changed",
+    "deleteAccount": "Delete account",
+    "deleteWarning": "This deactivates your account and removes your personal data. Teams where you are the only member are deleted. This cannot be undone.",
+    "confirmPassword": "Confirm your password",
+    "deleteConfirm": "Delete my account"
   },
   "common": {
     "cancel": "Cancel",

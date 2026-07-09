@@ -44,8 +44,8 @@ public class TeamService {
 
     /**
      * Permanently deletes a team and EVERYTHING that belongs to it — tasks (with their comments,
-     * mentions, comment attachments and task attachments), tags, invites, member labels and all
-     * memberships. Children are removed before parents because the schema uses plain (RESTRICT) FKs.
+     * mentions, comment attachments and task attachments), tags, invites, join requests, member
+     * labels and all memberships. Children are removed before parents (the schema uses RESTRICT FKs).
      * NOTE: attachment BLOBs on S3 are not removed here (a harmless orphan; cleaned up separately).
      */
     @Transactional
@@ -64,6 +64,7 @@ public class TeamService {
         exec("DELETE FROM team_invites WHERE team_id = :tid", teamId);
         exec("DELETE FROM membership_labels WHERE membership_id IN (SELECT id FROM team_memberships WHERE team_id = :tid) OR label_id IN (SELECT id FROM member_labels WHERE team_id = :tid)", teamId);
         exec("DELETE FROM member_labels WHERE team_id = :tid", teamId);
+        exec("DELETE FROM team_join_requests WHERE team_id = :tid", teamId);
         exec("DELETE FROM team_memberships WHERE team_id = :tid", teamId);
         exec("DELETE FROM teams WHERE id = :tid", teamId);
     }
