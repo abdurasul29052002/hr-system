@@ -85,6 +85,17 @@ public final class Dtos {
         }
     }
 
+    /**
+     * Minimal team-member info for @mention autocomplete in comments — safe for ANY team member to
+     * read (unlike {@link MemberDto} it omits phone / Telegram link code / role).
+     */
+    public record MentionMemberDto(Long employeeId, String fullName, String username) {
+        public static MentionMemberDto from(TeamMembership m) {
+            Employee e = m.getEmployee();
+            return new MentionMemberDto(e.getId(), e.getFullName(), e.getUsername());
+        }
+    }
+
     /** Create a brand-new user inside the current team. */
     public record NewMemberRequest(@NotBlank String fullName, @NotBlank String username, @NotBlank String password,
                                    String phone, String position, Role role, Language language, List<Long> labelIds) {

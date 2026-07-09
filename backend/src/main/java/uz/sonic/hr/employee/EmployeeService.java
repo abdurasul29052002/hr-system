@@ -163,6 +163,16 @@ public class EmployeeService {
         return membershipRepository.findAllByTeamIdWithEmployee(actor.getTeam().getId());
     }
 
+    /**
+     * Team roster for @mention autocomplete. Any team member may read it (no manager check) — the
+     * caller is already proven to belong to the team by resolving {@code actor}. Returns memberships
+     * so the controller can project only the non-sensitive fields (see MentionMemberDto).
+     */
+    @Transactional(readOnly = true)
+    public List<TeamMembership> listMentionable(TeamMembership actor) {
+        return membershipRepository.findAllByTeamIdWithEmployee(actor.getTeam().getId());
+    }
+
     private long countLeaders(TeamMembership actor) {
         return membershipRepository.countByTeamIdAndRole(actor.getTeam().getId(), Role.LEADER);
     }

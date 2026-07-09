@@ -42,6 +42,13 @@ export interface Member {
   joinedAt: string;
 }
 
+/** Minimal roster entry any team member can read, for @mention autocomplete. */
+export interface MentionMember {
+  employeeId: number;
+  fullName: string;
+  username: string;
+}
+
 export interface Tag {
   id: number;
   name: string;

@@ -7,7 +7,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { api } from '@/lib/api';
 import { getStoredEmployee, getCurrentMembership } from '@/lib/auth-client';
 import { isManagerRole } from '@/lib/types';
-import type { Member, Tag, Task, TaskPriority, TaskStatus } from '@/lib/types';
+import type { Member, MentionMember, Tag, Task, TaskPriority, TaskStatus } from '@/lib/types';
 import { Avatar, Badge, Button, Field, Input, Modal, PageHeader, PageLoader, Select, Textarea } from '@/components/ui';
 import TaskCommentSection from '@/components/TaskCommentSection';
 import TaskAttachmentSection from '@/components/TaskAttachmentSection';
@@ -29,6 +29,7 @@ export default function TasksPage() {
   const { t } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [mentionMembers, setMentionMembers] = useState<MentionMember[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [mineOnly, setMineOnly] = useState(false);
@@ -61,8 +62,11 @@ export default function TasksPage() {
   }, [load, employee?.admin, router]);
 
   useEffect(() => {
-    api.members().then(setMembers).catch(() => undefined);
+    // Every team member can read the lightweight roster (for @mention autocomplete in comments).
+    api.mentionableMembers().then(setMentionMembers).catch(() => undefined);
+    // The full roster + tags are manager-only (assignee pickers, task form).
     if (isManager) {
+      api.members().then(setMembers).catch(() => undefined);
       api.tags().then(setTags).catch(() => undefined);
     }
   }, [isManager]);
@@ -187,6 +191,7 @@ export default function TasksPage() {
           isManager={isManager}
           myId={myId}
           members={members}
+          mentionMembers={mentionMembers}
           onClose={() => setDetailTask(null)}
           onEdit={() => { setEditTask(detailTask); setDetailTask(null); }}
           onAction={act}
@@ -308,8 +313,8 @@ function TaskActions({ task, isManager, myId, members, onAction }: {
   );
 }
 
-function TaskDetailModal({ task, isManager, myId, members, onClose, onEdit, onAction }: {
-  task: Task; isManager: boolean; myId?: number; members: Member[];
+function TaskDetailModal({ task, isManager, myId, members, mentionMembers, onClose, onEdit, onAction }: {
+  task: Task; isManager: boolean; myId?: number; members: Member[]; mentionMembers: MentionMember[];
   onClose: () => void; onEdit: () => void; onAction: (id: number, fn: () => Promise<unknown>) => void;
 }) {
   const { t } = useTranslation();
@@ -352,7 +357,7 @@ function TaskDetailModal({ task, isManager, myId, members, onClose, onEdit, onAc
               </button>
             ))}
           </div>
-          {tab === 'comments' ? <TaskCommentSection taskId={task.id} members={members} /> : <TaskAttachmentSection taskId={task.id} />}
+          {tab === 'comments' ? <TaskCommentSection taskId={task.id} members={mentionMembers} /> : <TaskAttachmentSection taskId={task.id} />}
         </div>
       </div>
     </Modal>

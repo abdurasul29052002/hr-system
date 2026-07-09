@@ -4,14 +4,14 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '@/lib/api';
 import { getStoredEmployee } from '@/lib/auth-client';
-import type { Member, TaskComment, CommentRequest } from '@/lib/types';
+import type { MentionMember, TaskComment, CommentRequest } from '@/lib/types';
 import MarkdownRenderer from './MarkdownRenderer';
 import { Avatar } from './ui';
 import '@/lib/i18n';
 
 interface TaskCommentSectionProps {
   taskId: number;
-  members: Member[];
+  members: MentionMember[];
 }
 
 type MentionState = {
@@ -172,8 +172,8 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   const handleTextareaKeyDown = (
     e: React.KeyboardEvent<HTMLTextAreaElement>,
     mention: MentionState,
-    filtered: Member[],
-    applyMention: (member: Member) => void,
+    filtered: MentionMember[],
+    applyMention: (member: MentionMember) => void,
     submitShortcut: () => void,
     setMention: (m: MentionState) => void,
   ) => {
@@ -203,7 +203,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   };
 
   const applyMention = (
-    member: Member,
+    member: MentionMember,
     content: string,
     setContent: (v: string) => void,
     mention: MentionState,
@@ -428,7 +428,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   );
 }
 
-function filterMentionable(members: Member[], query: string) {
+function filterMentionable(members: MentionMember[], query: string) {
   const q = query.trim().toLowerCase();
   return members
     .filter((m) => !q || m.username.toLowerCase().includes(q) || m.fullName.toLowerCase().includes(q))
@@ -444,7 +444,7 @@ function computeMentionState(content: string, caret: number): MentionState {
   return { open: true, query: chunk, start: at, end: caret, activeIndex: 0 };
 }
 
-function MentionDropdown({ members, activeIndex, onPick }: { members: Member[]; activeIndex: number; onPick: (member: Member) => void }) {
+function MentionDropdown({ members, activeIndex, onPick }: { members: MentionMember[]; activeIndex: number; onPick: (member: MentionMember) => void }) {
   return (
     <div className="absolute bottom-full left-3 right-3 z-30 mb-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
       {members.map((m, idx) => (

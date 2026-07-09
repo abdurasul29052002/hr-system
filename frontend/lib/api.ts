@@ -8,6 +8,7 @@ import type {
   Task,
   TaskBody,
   Member,
+  MentionMember,
   MemberLabel,
   MemberActivity,
   TimelineTask,
@@ -127,6 +128,7 @@ export const api = {
   rejectProposal: (id: number) => request<void>(`/api/tasks/${id}/reject-proposal`, { method: 'POST' }),
 
   members: () => request<Member[]>('/api/employees'),
+  mentionableMembers: () => request<MentionMember[]>('/api/employees/mentionable'),
   createMember: (body: {
     fullName: string;
     username: string;

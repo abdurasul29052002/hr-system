@@ -23,6 +23,12 @@ public class EmployeeController {
         return employeeService.listMembers(currentMembership.get()).stream().map(MemberDto::from).toList();
     }
 
+    /** Lightweight team roster any member can read, for @mention autocomplete in comments. */
+    @GetMapping("/mentionable")
+    public List<MentionMemberDto> mentionable() {
+        return employeeService.listMentionable(currentMembership.get()).stream().map(MentionMemberDto::from).toList();
+    }
+
     /** Creates a brand-new user account inside the team. */
     @PostMapping
     public MemberDto create(@Valid @RequestBody NewMemberRequest request) {
