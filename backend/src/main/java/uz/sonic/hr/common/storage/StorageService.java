@@ -96,9 +96,9 @@ public class StorageService {
             return null;
         }
         if (StringUtils.hasText(props.getEndpoint())) {
-            // MinIO / DigitalOcean Spaces / other S3-compatible endpoint. Path-style against the region
-            // endpoint (bucket stripped) so the URL matches how the object was uploaded.
-            return props.effectiveEndpoint() + "/" + props.getBucketName() + "/" + key;
+            // MinIO / DigitalOcean Spaces / other S3-compatible endpoint. Path-style (endpoint/bucket/key),
+            // matching how forcePathStyle uploads the object — same as the romchi config.
+            return props.getEndpoint() + "/" + props.getBucketName() + "/" + key;
         }
         return String.format("https://%s.s3.%s.amazonaws.com/%s",
                 props.getBucketName(), props.getRegion(), key);

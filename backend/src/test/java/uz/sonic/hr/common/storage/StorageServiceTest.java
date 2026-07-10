@@ -39,14 +39,15 @@ class StorageServiceTest {
     }
 
     @Test
-    void publicUrl_stripsBucketPrefixFromDoPanelEndpoint() {
-        // DigitalOcean's panel shows the Space origin WITH the bucket label; without stripping it the
-        // SDK would double the bucket into a host the wildcard cert rejects.
+    void publicUrl_bucketInEndpointPathStyle() {
+        // DO's per-Space origin includes the bucket (e.g. romchi-files.ams3...). With forcePathStyle the
+        // client keeps that host (cert matches) and puts the bucket in the path, so the public URL is
+        // simply endpoint/bucket/key — the same location the object was uploaded to. Like the romchi config.
         StorageService s = new StorageService(s3,
-                props(true, "my-bucket", "us-east-1", "https://my-bucket.ams3.digitaloceanspaces.com/"));
+                props(true, "my-bucket", "us-east-1", "https://my-bucket.ams3.digitaloceanspaces.com"));
 
         assertThat(s.publicUrl("comments/2/b.png"))
-                .isEqualTo("https://ams3.digitaloceanspaces.com/my-bucket/comments/2/b.png");
+                .isEqualTo("https://my-bucket.ams3.digitaloceanspaces.com/my-bucket/comments/2/b.png");
     }
 
     @Test

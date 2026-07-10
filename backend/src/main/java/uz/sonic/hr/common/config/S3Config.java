@@ -36,12 +36,12 @@ public class S3Config {
                     AwsBasicCredentials.create(s3Properties.getAccessKey(), s3Properties.getSecretKey())));
         }
 
-        // Custom endpoint (MinIO, DigitalOcean Spaces, etc.). forcePathStyle(true) — the same setting
-        // the proven romchi config uses — puts the bucket in the PATH, not the host, so it is never
-        // doubled onto the endpoint host and the wildcard TLS cert always matches. effectiveEndpoint()
-        // additionally tolerates an endpoint that already carries the bucket (as DO's panel shows it).
+        // Custom endpoint (MinIO, DigitalOcean Spaces, etc.). forcePathStyle(true) — exactly like the
+        // proven romchi config — puts the bucket in the PATH, not the host, so the SDK never prepends
+        // (and doubles) the bucket onto the endpoint host and the wildcard TLS cert always matches. The
+        // endpoint is used as-is (DO's per-Space origin, bucket included, is fine).
         if (StringUtils.hasText(s3Properties.getEndpoint())) {
-            builder.endpointOverride(URI.create(s3Properties.effectiveEndpoint()))
+            builder.endpointOverride(URI.create(s3Properties.getEndpoint()))
                     .forcePathStyle(true);
         }
 
@@ -49,7 +49,7 @@ public class S3Config {
                 s3Properties.isEnabled(),
                 s3Properties.getBucketName(),
                 region,
-                StringUtils.hasText(s3Properties.getEndpoint()) ? s3Properties.effectiveEndpoint() : "AWS");
+                StringUtils.hasText(s3Properties.getEndpoint()) ? s3Properties.getEndpoint() : "AWS");
 
         return builder.build();
     }
