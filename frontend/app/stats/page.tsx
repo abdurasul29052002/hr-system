@@ -342,21 +342,33 @@ function MonthlyTimeline({ tasks, year, month }: { tasks: TimelineTask[]; year: 
     groupMap.get(key)!.push(b);
   });
 
-  // Lane-stack each worker's bars so overlapping tasks stack instead of colliding (usually 1 lane).
-  const start = (b: (typeof bars)[number]) => (b.taken ? b.visStart : b.startMs);
-  const end = (b: (typeof bars)[number]) => (b.taken ? b.visEnd : b.startMs);
+  // Each task gets its OWN row now (the worker's block grows taller with more tasks), so there is no
+  // lane-stacking — just order every worker's tasks chronologically by when they entered the board.
+  const startMsOf = (b: (typeof bars)[number]) => new Date(b.tk.takenAt ?? b.tk.createdAt).getTime();
   const workers = [...groupMap.entries()]
     .sort((a, b) => b[1].length - a[1].length)
-    .map(([name, items]) => {
-      const sorted = [...items].sort((a, b) => start(a) - start(b));
-      const laneEnds: number[] = [];
-      const placed = sorted.map((b) => {
-        let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start(b));
-        if (lane === -1) { lane = laneEnds.length; laneEnds.push(end(b)); } else { laneEnds[lane] = end(b); }
-        return { b, lane };
-      });
-      return { name, placed, laneCount: Math.max(1, laneEnds.length) };
-    });
+    .map(([name, items]) => ({
+      name,
+      tasks: [...items].sort((a, b) => startMsOf(a) - startMsOf(b)).map((b) => b.tk),
+    }));
+
+  // Break a task into its lifecycle segments, each coloured by the status of that phase:
+  // created→taken = OPEN, taken→submitted = IN_PROGRESS, submitted→(completed|now) = TESTING. The last
+  // phase runs to completion, to now while still ongoing, or to the last known step if cancelled.
+  const ms = (iso: string) => new Date(iso).getTime();
+  const segmentsOf = (tk: TimelineTask) => {
+    const created = ms(tk.createdAt);
+    const taken = tk.takenAt ? ms(tk.takenAt) : null;
+    const submitted = tk.submittedAt ? ms(tk.submittedAt) : null;
+    const completed = tk.completedAt ? ms(tk.completedAt) : null;
+    const tail = completed ?? (tk.status === 'CANCELLED' ? (submitted ?? taken ?? created) : now);
+    const points: { s: number; status: TaskStatus }[] = [{ s: created, status: 'OPEN' }];
+    if (taken) points.push({ s: taken, status: 'IN_PROGRESS' });
+    if (submitted) points.push({ s: submitted, status: 'TESTING' });
+    return points
+      .map((p, i) => ({ status: p.status, s: p.s, e: i + 1 < points.length ? points[i + 1].s : tail }))
+      .filter((g) => g.e > g.s);
+  };
 
   const step = Math.max(1, Math.ceil(daysInMonth / 6));
   const ticks: number[] = [];
@@ -367,7 +379,7 @@ function MonthlyTimeline({ tasks, year, month }: { tasks: TimelineTask[]; year: 
   const isThisMonth = year === nowUz.getUTCFullYear() && month === nowUz.getUTCMonth() + 1;
   const todayLeft = isThisMonth ? frac(now) * 100 : null;
 
-  const LANE_H = 24;
+  const ROW_H = 22;
 
   return (
     <div>
@@ -388,33 +400,44 @@ function MonthlyTimeline({ tasks, year, month }: { tasks: TimelineTask[]; year: 
                   ))}
                 </div>
               </div>
-              {/* One row per worker; their tasks are bars on a shared track (lane-stacked). */}
+              {/* One row PER TASK, grouped by worker — the worker's block grows taller with each task. */}
               <div>
-                {workers.map(({ name, placed, laneCount }) => (
-                  <div key={name} className="flex border-t border-slate-100 py-1.5 first:border-t-0">
-                    <div className="flex w-40 shrink-0 items-center pr-3">
+                {workers.map(({ name, tasks }) => (
+                  <div key={name} className="flex border-t border-slate-100 first:border-t-0">
+                    <div className="flex w-40 shrink-0 items-start pr-3 pt-2">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-slate-800">{name}</p>
-                        <p className="text-xs text-slate-400">{placed.length} {t('stats.tasksTotal')}</p>
+                        <p className="text-xs text-slate-400">{tasks.length} {t('stats.tasksTotal')}</p>
                       </div>
                     </div>
-                    <div className="relative flex-1" style={{ height: laneCount * LANE_H }}>
+                    <div className="relative flex-1 py-1.5">
                       {ticks.map((d) => (
-                        <span key={d} className="absolute top-0 h-full w-px bg-slate-100"
+                        <span key={d} className="absolute inset-y-0 w-px bg-slate-100"
                           style={{ left: `${((d - 1) / daysInMonth) * 100}%` }} />
                       ))}
                       {todayLeft != null && (
-                        <span className="absolute top-0 z-10 h-full w-0.5 bg-brand-400/70" style={{ left: `${todayLeft}%` }} />
+                        <span className="absolute inset-y-0 z-10 w-0.5 bg-brand-400/70" style={{ left: `${todayLeft}%` }} />
                       )}
-                      {placed.map(({ b, lane }) => {
-                        const left = frac(start(b)) * 100;
-                        const width = Math.max(1.5, (frac(end(b)) - frac(start(b))) * 100);
+                      {tasks.map((tk) => {
+                        const segs = segmentsOf(tk);
+                        const barLeft = frac(segs.length ? segs[0].s : ms(tk.createdAt)) * 100;
+                        const completedLeft = tk.completedAt ? frac(ms(tk.completedAt)) * 100 : null;
                         return (
-                          <div key={b.tk.id}
-                            className={`absolute flex items-center overflow-hidden rounded px-1 ${BAR_COLOR[b.tk.status]}`}
-                            style={{ left: `${left}%`, width: `${width}%`, minWidth: 10, top: lane * LANE_H + 2, height: LANE_H - 6 }}
-                            title={`${b.tk.title}\n${t(STATUS_KEY[b.tk.status])} · ${dayOf(b.tk.takenAt)} → ${dayOf(b.tk.completedAt)}`}>
-                            <span className="truncate text-[10px] leading-none text-white">{b.tk.title}</span>
+                          <div key={tk.id} className="relative" style={{ height: ROW_H }}
+                            title={`${tk.title}\n${t('tasks.open')}: ${dayOf(tk.createdAt)} · ${t('tasks.inProgress')}: ${dayOf(tk.takenAt)} · ${t('tasks.testing')}: ${dayOf(tk.submittedAt)} · ${t('tasks.done')}: ${dayOf(tk.completedAt)}`}>
+                            {segs.map((seg, i) => (
+                              <div key={i}
+                                className={`absolute top-1/2 h-3.5 -translate-y-1/2 ${BAR_COLOR[seg.status]} ${i === 0 ? 'rounded-l-sm' : ''} ${i === segs.length - 1 && completedLeft == null ? 'rounded-r-sm' : ''}`}
+                                style={{ left: `${frac(seg.s) * 100}%`, width: `${Math.max(0.6, (frac(seg.e) - frac(seg.s)) * 100)}%`, minWidth: 3 }} />
+                            ))}
+                            {completedLeft != null && (
+                              <span className="absolute top-1/2 z-20 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500 ring-2 ring-white"
+                                style={{ left: `${completedLeft}%` }} title={t('tasks.done')} />
+                            )}
+                            <span className="pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 truncate pl-1 text-[10px] font-medium text-slate-700"
+                              style={{ left: `${barLeft}%`, maxWidth: `${Math.max(8, 100 - barLeft)}%` }}>
+                              {tk.title}
+                            </span>
                           </div>
                         );
                       })}
@@ -422,9 +445,9 @@ function MonthlyTimeline({ tasks, year, month }: { tasks: TimelineTask[]; year: 
                   </div>
                 ))}
               </div>
-              {/* Legend */}
+              {/* Legend — each lifecycle phase in its own status colour. */}
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
-                {(['IN_PROGRESS', 'TESTING', 'DONE'] as TaskStatus[]).map((s) => (
+                {(['OPEN', 'IN_PROGRESS', 'TESTING', 'DONE'] as TaskStatus[]).map((s) => (
                   <span key={s} className="flex items-center gap-1.5">
                     <span className={`h-2.5 w-2.5 rounded-sm ${BAR_COLOR[s]}`} />
                     {t(STATUS_KEY[s])}
