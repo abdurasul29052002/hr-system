@@ -39,6 +39,17 @@ class StorageServiceTest {
     }
 
     @Test
+    void publicUrl_stripsBucketPrefixFromDoPanelEndpoint() {
+        // DigitalOcean's panel shows the Space origin WITH the bucket label; without stripping it the
+        // SDK would double the bucket into a host the wildcard cert rejects.
+        StorageService s = new StorageService(s3,
+                props(true, "my-bucket", "us-east-1", "https://my-bucket.ams3.digitaloceanspaces.com/"));
+
+        assertThat(s.publicUrl("comments/2/b.png"))
+                .isEqualTo("https://ams3.digitaloceanspaces.com/my-bucket/comments/2/b.png");
+    }
+
+    @Test
     void publicUrl_nullWhenDisabled() {
         StorageService s = new StorageService(s3, props(false, "my-bucket", "us-east-1", null));
 

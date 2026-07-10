@@ -10,6 +10,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 
 import java.net.URI;
 
@@ -36,16 +37,20 @@ public class S3Config {
                     AwsBasicCredentials.create(s3Properties.getAccessKey(), s3Properties.getSecretKey())));
         }
 
-        // Custom endpoint (MinIO, DigitalOcean Spaces, etc.)
+        // Custom endpoint (MinIO, DigitalOcean Spaces, etc.). Use PATH-STYLE addressing against the
+        // region endpoint so the bucket goes in the path, not the host — otherwise the SDK's default
+        // virtual-hosted style prepends the bucket to the host and, if the endpoint already carries the
+        // bucket (as DO's panel shows it), doubles it into a host the wildcard TLS cert rejects.
         if (StringUtils.hasText(s3Properties.getEndpoint())) {
-            builder.endpointOverride(URI.create(s3Properties.getEndpoint()));
+            builder.endpointOverride(URI.create(s3Properties.effectiveEndpoint()))
+                    .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build());
         }
 
         log.info("S3 client initialized: enabled={}, bucket={}, region={}, endpoint={}",
                 s3Properties.isEnabled(),
                 s3Properties.getBucketName(),
                 region,
-                StringUtils.hasText(s3Properties.getEndpoint()) ? s3Properties.getEndpoint() : "AWS");
+                StringUtils.hasText(s3Properties.getEndpoint()) ? s3Properties.effectiveEndpoint() : "AWS");
 
         return builder.build();
     }
