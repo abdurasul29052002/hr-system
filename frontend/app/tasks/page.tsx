@@ -43,15 +43,17 @@ export default function TasksPage() {
   const isManager = isManagerRole(membership?.role);
   const myId = employee?.id;
 
+  // Always load the full team board; "mine only" is applied client-side so the propose nudge can see
+  // the member's complete workload (incl. tasks they only review) regardless of the filter.
   const load = useCallback(async () => {
     try {
-      setTasks(await api.tasks({ mine: mineOnly }));
+      setTasks(await api.tasks({}));
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [mineOnly]);
+  }, []);
 
   useEffect(() => {
     if (employee?.admin) {
@@ -81,13 +83,16 @@ export default function TasksPage() {
     }
   };
 
-  const pending = tasks.filter((tk) => tk.status === 'PENDING');
-  const cancelled = tasks.filter((tk) => tk.status === 'CANCELLED');
-  // A member with nothing on their plate (no proposal, nothing in progress / in review) is nudged to report.
-  const hasOwnOngoing = tasks.some(
-    (tk) => tk.assigneeId === myId && ['PENDING', 'IN_PROGRESS', 'TESTING'].includes(tk.status),
-  );
-  const showProposePrompt = !isManager && !hasOwnOngoing;
+  // Display respects the "mine only" toggle (client-side); the prompt below uses the full list.
+  const visibleTasks = mineOnly ? tasks.filter((tk) => tk.assigneeId === myId) : tasks;
+  const pending = visibleTasks.filter((tk) => tk.status === 'PENDING');
+  const cancelled = visibleTasks.filter((tk) => tk.status === 'CANCELLED');
+  // Nudge a member only when they have nothing active: no IN_PROGRESS task assigned to them, AND no
+  // TESTING task they are the reviewer of. Any of those → they're busy, so no prompt.
+  const hasActiveWork =
+    tasks.some((tk) => tk.assigneeId === myId && tk.status === 'IN_PROGRESS') ||
+    tasks.some((tk) => tk.reviewerId === myId && tk.status === 'TESTING');
+  const showProposePrompt = !isManager && !hasActiveWork;
 
   if (loading) {
     return <DashboardLayout><PageLoader /></DashboardLayout>;
@@ -140,7 +145,7 @@ export default function TasksPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {COLUMNS.map((col) => {
-          const items = tasks.filter((tk) => tk.status === col.status);
+          const items = visibleTasks.filter((tk) => tk.status === col.status);
           return (
             <div key={col.status} className="rounded-xl bg-slate-200/40 p-3">
               <div className="mb-3 flex items-center gap-2 px-1">
