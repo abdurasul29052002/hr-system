@@ -209,7 +209,11 @@
     "noTimeline": "Нет задач в этом месяце",
     "distribution": "Распределение задач",
     "tasksTotal": "задач",
-    "reviewed": "Проверил"
+    "reviewed": "Проверил",
+    "tlCreated": "Добавлено",
+    "tlStarted": "Начато",
+    "tlSubmitted": "На проверку",
+    "tlCompleted": "Готово"
   },
   "comments": {
     "title": "Комментарии",

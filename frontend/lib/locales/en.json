@@ -209,7 +209,11 @@
     "noTimeline": "No tasks in this month",
     "distribution": "Task distribution",
     "tasksTotal": "tasks",
-    "reviewed": "Reviewed"
+    "reviewed": "Reviewed",
+    "tlCreated": "Added",
+    "tlStarted": "Started",
+    "tlSubmitted": "To review",
+    "tlCompleted": "Done"
   },
   "comments": {
     "title": "Comments",

@@ -209,7 +209,11 @@
     "noTimeline": "Bu oyda tasklar yo'q",
     "distribution": "Umumiy taqsimot",
     "tasksTotal": "ta task",
-    "reviewed": "Tekshirgan"
+    "reviewed": "Tekshirgan",
+    "tlCreated": "Qo'shildi",
+    "tlStarted": "Boshlandi",
+    "tlSubmitted": "Testga",
+    "tlCompleted": "Bajarildi"
   },
   "comments": {
     "title": "Izohlar",

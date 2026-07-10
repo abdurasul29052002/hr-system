@@ -317,7 +317,12 @@ function MonthlyTimeline({ tasks, year, month }: { tasks: TimelineTask[]; year: 
   const now = Date.now();
 
   const frac = (ms: number) => Math.min(1, Math.max(0, (ms - monthStart) / span));
-  const dayOf = (iso: string | null) => (iso ? new Date(new Date(iso).getTime() + TZ).getUTCDate() : '—');
+  // Locale-neutral, deterministic DD.MM for the hover tooltip (avoids SSR/locale hydration drift).
+  const fmtDate = (iso: string | null) => {
+    if (!iso) return null;
+    const d = new Date(new Date(iso).getTime() + TZ);
+    return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  };
 
   // Per-task geometry, filtered to spans that actually fall inside the elapsed part of this month.
   const bars = tasks
@@ -421,10 +426,17 @@ function MonthlyTimeline({ tasks, year, month }: { tasks: TimelineTask[]; year: 
                       {tasks.map((tk) => {
                         const segs = segmentsOf(tk);
                         const barLeft = frac(segs.length ? segs[0].s : ms(tk.createdAt)) * 100;
+                        const barRight = frac(segs.length ? segs[segs.length - 1].e : ms(tk.createdAt)) * 100;
                         const completedLeft = tk.completedAt ? frac(ms(tk.completedAt)) * 100 : null;
+                        // Clear hover tooltip: the date (DD.MM) each lifecycle step happened, skipping unreached ones.
+                        const steps = [
+                          `${t('stats.tlCreated')} ${fmtDate(tk.createdAt)}`,
+                          tk.takenAt ? `${t('stats.tlStarted')} ${fmtDate(tk.takenAt)}` : null,
+                          tk.submittedAt ? `${t('stats.tlSubmitted')} ${fmtDate(tk.submittedAt)}` : null,
+                          tk.completedAt ? `${t('stats.tlCompleted')} ${fmtDate(tk.completedAt)}` : null,
+                        ].filter(Boolean).join(' · ');
                         return (
-                          <div key={tk.id} className="relative" style={{ height: ROW_H }}
-                            title={`${tk.title}\n${t('tasks.open')}: ${dayOf(tk.createdAt)} · ${t('tasks.inProgress')}: ${dayOf(tk.takenAt)} · ${t('tasks.testing')}: ${dayOf(tk.submittedAt)} · ${t('tasks.done')}: ${dayOf(tk.completedAt)}`}>
+                          <div key={tk.id} className="relative" style={{ height: ROW_H }} title={`${tk.title}\n${steps}`}>
                             {segs.map((seg, i) => (
                               <div key={i}
                                 className={`absolute top-1/2 h-3.5 -translate-y-1/2 ${BAR_COLOR[seg.status]} ${i === 0 ? 'rounded-l-sm' : ''} ${i === segs.length - 1 && completedLeft == null ? 'rounded-r-sm' : ''}`}
@@ -434,8 +446,9 @@ function MonthlyTimeline({ tasks, year, month }: { tasks: TimelineTask[]; year: 
                               <span className="absolute top-1/2 z-20 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500 ring-2 ring-white"
                                 style={{ left: `${completedLeft}%` }} title={t('tasks.done')} />
                             )}
-                            <span className="pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 truncate pl-1 text-[10px] font-medium text-slate-700"
-                              style={{ left: `${barLeft}%`, maxWidth: `${Math.max(8, 100 - barLeft)}%` }}>
+                            {/* Title clipped to the bar itself (…) — the full name shows on hover. */}
+                            <span className="pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 truncate px-1 text-[10px] font-medium text-slate-700"
+                              style={{ left: `${barLeft}%`, maxWidth: `${Math.max(1, barRight - barLeft)}%` }}>
                               {tk.title}
                             </span>
                           </div>
