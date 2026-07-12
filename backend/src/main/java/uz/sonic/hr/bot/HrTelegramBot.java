@@ -781,6 +781,15 @@ public class HrTelegramBot extends TelegramLongPollingBot {
     }
 
     @Async
+    @EventListener
+    public void onTaskProposed(TaskEvents.TaskProposed event) {
+        // A member reported/proposed work that leaders & managers must confirm. Mirrors the web
+        // TASK_PROPOSED notification so the bot stays at parity with the site (the proposer is skipped).
+        notifyManagement(event.teamId(), event.proposerId(), "notif_proposed", event.proposerName(),
+                "#" + event.taskId() + " " + event.title());
+    }
+
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onTeamJoinRequested(JoinRequestEvents.TeamJoinRequested event) {
         if (!enabled) {
