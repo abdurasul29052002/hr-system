@@ -119,6 +119,10 @@ export default function NotificationPanel() {
         return '❌';
       case 'INVITE_RECEIVED':
         return '📧';
+      case 'TICKET_REPLY':
+        return '💬';
+      case 'TICKET_STATUS':
+        return '🎫';
       default:
         return '🔔';
     }

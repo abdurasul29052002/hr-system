@@ -48,6 +48,9 @@ app:
   bot:
     token: ${HR_BOT_TOKEN:}
     username: ${HR_BOT_USERNAME:}
+    # Telegram chat id that receives support-ticket alerts (new ticket / user reply). Optional — the
+    # single project owner has no Telegram link of their own, so set this to their chat id to be pinged.
+    admin-chat-id: ${HR_BOT_ADMIN_CHAT_ID:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
   s3:

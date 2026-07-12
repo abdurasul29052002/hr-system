@@ -79,6 +79,10 @@ public class HrTelegramBot extends TelegramLongPollingBot {
     private final TeamJoinRequestService teamJoinRequestService;
     private final Map<Long, Session> sessions = new ConcurrentHashMap<>();
 
+    /** Telegram chat id of the project owner, for support-ticket alerts. Blank → admin alerts disabled. */
+    @Value("${app.bot.admin-chat-id:}")
+    private String adminChatId;
+
     public HrTelegramBot(@Value("${app.bot.token}") String token,
                          @Value("${app.bot.username}") String botUsername,
                          EmployeeRepository employeeRepository,
@@ -787,6 +791,65 @@ public class HrTelegramBot extends TelegramLongPollingBot {
         // TASK_PROPOSED notification so the bot stays at parity with the site (the proposer is skipped).
         notifyManagement(event.teamId(), event.proposerId(), "notif_proposed", event.proposerName(),
                 "#" + event.taskId() + " " + event.title());
+    }
+
+    // ---------------------------------------------------------------- support tickets
+
+    /** Admin replied to a support ticket → DM its creator. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTicketAdminResponse(TicketEvents.TicketAdminResponse event) {
+        if (!enabled) {
+            return;
+        }
+        employeeRepository.findById(event.recipientId())
+                .filter(e -> e.getTelegramChatId() != null)
+                .ifPresent(creator -> send(creator.getTelegramChatId(),
+                        BotMessages.get(creator.getLanguage(), "notif_ticket_reply", event.subject()), null));
+    }
+
+    /** A support ticket changed status → DM its creator. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTicketStatusChanged(TicketEvents.TicketStatusChanged event) {
+        if (!enabled) {
+            return;
+        }
+        employeeRepository.findById(event.creatorId())
+                .filter(e -> e.getTelegramChatId() != null)
+                .ifPresent(creator -> send(creator.getTelegramChatId(),
+                        BotMessages.get(creator.getLanguage(), "notif_ticket_status",
+                                event.newStatus().name(), event.subject()), null));
+    }
+
+    /** A new ticket was opened → ping the project owner (if a chat id is configured). */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTicketCreated(TicketEvents.TicketCreated event) {
+        notifyAdmin("notif_ticket_new", event.subject(), event.creatorName());
+    }
+
+    /** A user added a message to their ticket → ping the project owner. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTicketUserMessage(TicketEvents.TicketUserMessage event) {
+        notifyAdmin("notif_ticket_msg", event.senderName(), event.subject());
+    }
+
+    /** DM the configured project-owner chat about a support ticket. No-op when unset/disabled/non-numeric. */
+    private void notifyAdmin(String key, Object... args) {
+        if (!enabled || adminChatId == null || adminChatId.isBlank()) {
+            return;
+        }
+        long chatId;
+        try {
+            chatId = Long.parseLong(adminChatId.trim());
+        } catch (NumberFormatException e) {
+            log.warn("app.bot.admin-chat-id is not a numeric chat id: {}", adminChatId);
+            return;
+        }
+        // The admin account has no per-user bot language; default to English for these alerts.
+        send(chatId, BotMessages.get(Language.EN, key, args), null);
     }
 
     @Async

@@ -246,7 +246,9 @@ export type NotificationType =
   | 'TEAM_JOIN_APPROVED'
   | 'TEAM_JOIN_REJECTED'
   | 'INVITE_RECEIVED'
-  | 'COMMENT_ADDED';
+  | 'COMMENT_ADDED'
+  | 'TICKET_REPLY'
+  | 'TICKET_STATUS';
 
 export interface Notification {
   id: number;

@@ -222,4 +222,40 @@ public class NotificationEventListener {
             log.error("Failed to create notification for CommentAdded", e);
         }
     }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTicketAdminResponse(TicketEvents.TicketAdminResponse event) {
+        try {
+            Employee creator = employeeRepository.findById(event.recipientId()).orElse(null);
+            if (creator == null) return;
+            notificationService.createNotification(
+                    NotificationType.TICKET_REPLY,
+                    creator,
+                    "Support reply",
+                    event.adminName() + " replied to your ticket: " + event.subject(),
+                    null, null, null, null
+            );
+        } catch (Exception e) {
+            log.error("Failed to create notification for TicketAdminResponse", e);
+        }
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTicketStatusChanged(TicketEvents.TicketStatusChanged event) {
+        try {
+            Employee creator = employeeRepository.findById(event.creatorId()).orElse(null);
+            if (creator == null) return;
+            notificationService.createNotification(
+                    NotificationType.TICKET_STATUS,
+                    creator,
+                    "Ticket updated",
+                    "Your ticket is now " + event.newStatus() + ": " + event.subject(),
+                    null, null, null, null
+            );
+        } catch (Exception e) {
+            log.error("Failed to create notification for TicketStatusChanged", e);
+        }
+    }
 }

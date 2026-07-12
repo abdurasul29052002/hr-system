@@ -11,5 +11,7 @@ public enum NotificationType {
     TEAM_JOIN_APPROVED,  // A leader approved a user's request to join the team
     TEAM_JOIN_REJECTED,  // A leader rejected a user's request to join the team
     INVITE_RECEIVED,     // User received a team invite
-    COMMENT_ADDED        // New comment on a task user is involved with
+    COMMENT_ADDED,       // New comment on a task user is involved with
+    TICKET_REPLY,        // Admin replied to the user's support ticket
+    TICKET_STATUS        // The user's support ticket changed status
 }
