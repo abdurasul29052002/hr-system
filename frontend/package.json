@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@types/js-cookie": "^3.0.6",
+    "@vercel/speed-insights": "^2.0.0",
     "i18next": "^26.3.4",
     "i18next-resources-to-backend": "^1.2.1",
     "js-cookie": "^3.0.8",
