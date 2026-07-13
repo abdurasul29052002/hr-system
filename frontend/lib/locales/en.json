@@ -90,7 +90,14 @@
     "report": "Report",
     "proposeModalHint": "Describe what you are working on. A leader will confirm it as a task.",
     "sendForApproval": "Send for approval",
-    "descriptionHint": "Add the details here — keep the title short."
+    "descriptionHint": "Add the details here — keep the title short.",
+    "proposeTitle": "Add a task",
+    "proposeNote": "You are adding a task — it will await your leader's approval before it appears for the team.",
+    "timesSection": "Times (optional — for recording past work)",
+    "createdAt": "Created",
+    "startedAt": "Started",
+    "finishedAt": "Finished (sent to review)",
+    "reviewedAt": "Passed review (done)"
   },
   "employees": {
     "title": "Team members",

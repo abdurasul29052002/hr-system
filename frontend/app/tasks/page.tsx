@@ -7,7 +7,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { api } from '@/lib/api';
 import { getStoredEmployee, getCurrentMembership } from '@/lib/auth-client';
 import { isManagerRole } from '@/lib/types';
-import type { Member, MentionMember, Tag, Task, TaskPriority, TaskStatus } from '@/lib/types';
+import type { Member, MentionMember, Tag, Task, TaskBody, TaskPriority, TaskStatus } from '@/lib/types';
 import { Avatar, Badge, Button, Field, Input, Modal, PageHeader, PageLoader, Select, Textarea } from '@/components/ui';
 import TaskCommentSection from '@/components/TaskCommentSection';
 import TaskAttachmentSection from '@/components/TaskAttachmentSection';
@@ -35,7 +35,6 @@ export default function TasksPage() {
   const [mineOnly, setMineOnly] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
-  const [showPropose, setShowPropose] = useState(false);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
 
   const employee = getStoredEmployee();
@@ -108,7 +107,7 @@ export default function TasksPage() {
               <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} className="accent-brand-600" />
               {t('tasks.mineOnly')}
             </label>
-            {isManager && <Button onClick={() => setShowCreate(true)}>+ {t('tasks.newTask')}</Button>}
+            <Button onClick={() => setShowCreate(true)}>+ {t('tasks.newTask')}</Button>
           </>
         }
       />
@@ -123,7 +122,7 @@ export default function TasksPage() {
             <p className="text-sm font-semibold text-slate-900">{t('tasks.whatWorkingOn')}</p>
             <p className="text-xs text-slate-500">{t('tasks.proposeHint')}</p>
           </div>
-          <Button size="sm" onClick={() => setShowPropose(true)}>{t('tasks.report')}</Button>
+          <Button size="sm" onClick={() => setShowCreate(true)}>{t('tasks.report')}</Button>
         </div>
       )}
 
@@ -181,13 +180,10 @@ export default function TasksPage() {
           members={members}
           tags={tags}
           editTask={editTask}
+          isManager={isManager}
           onClose={() => { setShowCreate(false); setEditTask(null); }}
           onSaved={() => { setShowCreate(false); setEditTask(null); setDetailTask(null); load(); }}
         />
-      )}
-
-      {showPropose && (
-        <ProposeModal onClose={() => setShowPropose(false)} onDone={() => { setShowPropose(false); load(); }} />
       )}
 
       {detailTask && (
@@ -370,11 +366,13 @@ function TaskDetailModal({ task, isManager, myId, members, mentionMembers, onClo
 }
 
 /** Create or edit a task. In edit mode, prefills from the task, saves via updateTask, and hides uploads. */
-function TaskFormModal({ members, tags, editTask, onClose, onSaved }: {
-  members: Member[]; tags: Tag[]; editTask: Task | null; onClose: () => void; onSaved: () => void;
+function TaskFormModal({ members, tags, editTask, isManager, onClose, onSaved }: {
+  members: Member[]; tags: Tag[]; editTask: Task | null; isManager: boolean; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const editing = editTask != null;
+  const propose = !editing && !isManager; // a member adding a task → proposal awaiting a leader's approval
+  const nowLocal = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
   const [title, setTitle] = useState(editTask?.title ?? '');
   const [description, setDescription] = useState(editTask?.description ?? '');
   const [priority, setPriority] = useState<TaskPriority>(editTask?.priority ?? 'MEDIUM');
@@ -382,30 +380,41 @@ function TaskFormModal({ members, tags, editTask, onClose, onSaved }: {
   const [assigneeId, setAssigneeId] = useState<number | ''>(editTask?.assigneeId ?? '');
   const [reviewerId, setReviewerId] = useState<number | ''>(editTask?.reviewerId ?? '');
   const [tagIds, setTagIds] = useState<number[]>(editTask?.tags.map((tg) => tg.id) ?? []);
+  const [createdAt, setCreatedAt] = useState(nowLocal());
+  const [takenAt, setTakenAt] = useState('');
+  const [submittedAt, setSubmittedAt] = useState('');
+  const [completedAt, setCompletedAt] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const toggleTag = (id: number) => setTagIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  const toIso = (v: string) => (v ? new Date(v).toISOString() : null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setBusy(true);
     try {
-      const body = {
+      const body: TaskBody = {
         title,
         description: description || undefined,
         priority,
         deadline: deadline || null,
-        tagIds,
-        assigneeId: assigneeId === '' ? null : assigneeId,
-        reviewerId: reviewerId === '' ? null : reviewerId,
+        tagIds: isManager ? tagIds : [],
+        assigneeId: isManager ? (assigneeId === '' ? null : assigneeId) : null,
+        reviewerId: isManager ? (reviewerId === '' ? null : reviewerId) : null,
+        ...(editing ? {} : {
+          createdAt: toIso(createdAt),
+          takenAt: toIso(takenAt),
+          submittedAt: toIso(submittedAt),
+          completedAt: toIso(completedAt),
+        }),
       };
       if (editing) {
         await api.updateTask(editTask!.id, body);
       } else {
-        const task = await api.createTask(body);
+        const task = propose ? await api.proposeTask(body) : await api.createTask(body);
         for (const file of files) {
           await api.uploadAttachment(task.id, file).catch(() => undefined);
         }
@@ -418,8 +427,11 @@ function TaskFormModal({ members, tags, editTask, onClose, onSaved }: {
   };
 
   return (
-    <Modal open onClose={onClose} title={editing ? t('tasks.editTask') : t('tasks.newTask')} size="lg">
+    <Modal open onClose={onClose} title={propose ? t('tasks.proposeTitle') : editing ? t('tasks.editTask') : t('tasks.newTask')} size="lg">
       <form onSubmit={submit} className="space-y-3">
+        {propose && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">{t('tasks.proposeNote')}</p>
+        )}
         <Field label={t('tasks.title')}>
           <Input value={title} onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))} maxLength={TITLE_MAX} required autoFocus />
           <p className="mt-1 text-right text-[11px] text-slate-400">{title.length}/{TITLE_MAX}</p>
@@ -439,21 +451,42 @@ function TaskFormModal({ members, tags, editTask, onClose, onSaved }: {
             <Input type="date" value={deadline ?? ''} onChange={(e) => setDeadline(e.target.value)} />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t('tasks.assignee')}>
-            <Select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">{t('tasks.openPool')}</option>
-              {members.map((m) => <option key={m.employeeId} value={m.employeeId}>{m.fullName}</option>)}
-            </Select>
-          </Field>
-          <Field label={t('tasks.reviewer')}>
-            <Select value={reviewerId} onChange={(e) => setReviewerId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">{t('tasks.noReviewer')}</option>
-              {members.filter((m) => m.employeeId !== assigneeId).map((m) => <option key={m.employeeId} value={m.employeeId}>{m.fullName}</option>)}
-            </Select>
-          </Field>
-        </div>
-        {tags.length > 0 && (
+        {isManager && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t('tasks.assignee')}>
+              <Select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : '')}>
+                <option value="">{t('tasks.openPool')}</option>
+                {members.map((m) => <option key={m.employeeId} value={m.employeeId}>{m.fullName}</option>)}
+              </Select>
+            </Field>
+            <Field label={t('tasks.reviewer')}>
+              <Select value={reviewerId} onChange={(e) => setReviewerId(e.target.value ? Number(e.target.value) : '')}>
+                <option value="">{t('tasks.noReviewer')}</option>
+                {members.filter((m) => m.employeeId !== assigneeId).map((m) => <option key={m.employeeId} value={m.employeeId}>{m.fullName}</option>)}
+              </Select>
+            </Field>
+          </div>
+        )}
+        {!editing && (
+          <div className="rounded-lg border border-slate-200 p-3">
+            <p className="mb-2 text-xs font-medium text-slate-500">{t('tasks.timesSection')}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={t('tasks.createdAt')}>
+                <Input type="datetime-local" value={createdAt} onChange={(e) => setCreatedAt(e.target.value)} />
+              </Field>
+              <Field label={t('tasks.startedAt')}>
+                <Input type="datetime-local" value={takenAt} onChange={(e) => setTakenAt(e.target.value)} />
+              </Field>
+              <Field label={t('tasks.finishedAt')}>
+                <Input type="datetime-local" value={submittedAt} onChange={(e) => setSubmittedAt(e.target.value)} />
+              </Field>
+              <Field label={t('tasks.reviewedAt')}>
+                <Input type="datetime-local" value={completedAt} onChange={(e) => setCompletedAt(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+        )}
+        {isManager && tags.length > 0 && (
           <Field label={t('tasks.tags')}>
             <div className="flex flex-wrap gap-2">
               {tags.map((tag) => {
@@ -492,48 +525,7 @@ function TaskFormModal({ members, tags, editTask, onClose, onSaved }: {
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="submit" disabled={busy || !title.trim()}>{busy ? t('common.saving') : editing ? t('common.save') : t('common.create')}</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-/** A member reports what they're working on — becomes a proposal for a leader to confirm. */
-function ProposeModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const { t } = useTranslation();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      await api.proposeTask({ title, description: description || undefined });
-      onDone();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error');
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal open onClose={onClose} title={t('tasks.whatWorkingOn')} size="sm">
-      <form onSubmit={submit} className="space-y-3">
-        <p className="text-sm text-slate-500">{t('tasks.proposeModalHint')}</p>
-        <Field label={t('tasks.title')}>
-          <Input value={title} onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))} maxLength={TITLE_MAX} required autoFocus />
-        </Field>
-        <Field label={t('tasks.description')}>
-          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
-        </Field>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="submit" disabled={busy || !title.trim()}>{busy ? t('common.saving') : t('tasks.sendForApproval')}</Button>
+          <Button type="submit" disabled={busy || !title.trim()}>{busy ? t('common.saving') : propose ? t('tasks.sendForApproval') : editing ? t('common.save') : t('common.create')}</Button>
         </div>
       </form>
     </Modal>

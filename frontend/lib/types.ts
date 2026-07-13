@@ -170,6 +170,12 @@ export interface TaskBody {
   tagIds?: number[];
   assigneeId?: number | null;
   reviewerId?: number | null;
+  // Optional lifecycle timestamps (ISO) — to record work that already happened. Status follows the
+  // furthest one supplied: created→OPEN, taken→IN_PROGRESS, submitted→TESTING, completed→DONE.
+  createdAt?: string | null;
+  takenAt?: string | null;
+  submittedAt?: string | null;
+  completedAt?: string | null;
 }
 
 export interface TeamAdmin {

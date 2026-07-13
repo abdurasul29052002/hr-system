@@ -55,17 +55,82 @@ public class TaskService {
             task.setAssignee(getActiveTeammate(request.assigneeId(), team));
         }
         task.setReviewer(resolveReviewer(request.reviewerId(), team, task.getAssignee()));
+        // Optional lifecycle times let past work be recorded; the status follows the furthest time given.
+        TaskStatus status = applyLifecycleTimes(task, request);
+        task.setStatus(status);
+        if (status != TaskStatus.OPEN && task.getAssignee() == null) {
+            task.setAssignee(actor.getEmployee()); // a started/finished task needs an owner
+        }
+        if (task.getReviewer() != null && task.getAssignee() != null
+                && task.getReviewer().getId().equals(task.getAssignee().getId())) {
+            task.setReviewer(null); // the doer can't also review it (e.g. after defaulting the assignee)
+        }
         task = taskRepository.save(task);
-        eventPublisher.publishEvent(new TaskEvents.TaskCreated(
-                task.getId(), team.getId(), task.getTitle(), task.getPriority(), task.getDeadline(),
-                actor.getEmployee().getFullName(), actor.getEmployee().getId(),
-                task.getAssignee() != null ? task.getAssignee().getId() : null));
-        if (task.getAssignee() != null) {
-            eventPublisher.publishEvent(new TaskEvents.TaskAssigned(
-                    task.getId(), team.getId(), task.getTitle(), task.getAssignee().getId(),
-                    actor.getEmployee().getFullName(), actor.getEmployee().getId()));
+        // Only a genuinely new (OPEN) task fires notifications; historical/advanced-state entries are
+        // recorded silently (no assignee ping, no open-pool broadcast) — they are past work, not live work.
+        if (status == TaskStatus.OPEN) {
+            eventPublisher.publishEvent(new TaskEvents.TaskCreated(
+                    task.getId(), team.getId(), task.getTitle(), task.getPriority(), task.getDeadline(),
+                    actor.getEmployee().getFullName(), actor.getEmployee().getId(),
+                    task.getAssignee() != null ? task.getAssignee().getId() : null));
+            if (task.getAssignee() != null) {
+                eventPublisher.publishEvent(new TaskEvents.TaskAssigned(
+                        task.getId(), team.getId(), task.getTitle(), task.getAssignee().getId(),
+                        actor.getEmployee().getFullName(), actor.getEmployee().getId()));
+            }
         }
         return TaskDto.from(task);
+    }
+
+    /**
+     * Applies the optional lifecycle timestamps to the task (validating they are non-decreasing and that a
+     * finished/reviewed time comes with a start) and returns the status they imply. {@code createdAt}
+     * defaults to now; a completion with no submit step still records a submittedAt (for stats/timeline).
+     */
+    private static TaskStatus applyLifecycleTimes(Task task, TaskRequest r) {
+        Instant created = r.createdAt() != null ? r.createdAt() : Instant.now();
+        Instant taken = r.takenAt();
+        Instant submitted = r.submittedAt();
+        Instant completed = r.completedAt();
+        // createdAt can't be after any lifecycle step — clamp it down to the earliest supplied time, so
+        // recording past work (a start/finish in the past) doesn't fail against a "now" default createdAt.
+        for (Instant t : new Instant[]{taken, submitted, completed}) {
+            if (t != null && t.isBefore(created)) {
+                created = t;
+            }
+        }
+        Instant prev = null;
+        for (Instant t : new Instant[]{taken, submitted, completed}) {
+            if (t == null) {
+                continue;
+            }
+            if (prev != null && t.isBefore(prev)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Task times must be in order: started ≤ finished ≤ reviewed");
+            }
+            prev = t;
+        }
+        if ((submitted != null || completed != null) && taken == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A finished or reviewed time requires a started time");
+        }
+        if (completed != null && submitted == null) {
+            submitted = completed; // completed straight from IN_PROGRESS — keep a submit time for stats
+        }
+        task.setCreatedAt(created);
+        task.setTakenAt(taken);
+        task.setSubmittedAt(submitted);
+        task.setCompletedAt(completed);
+        if (completed != null) {
+            return TaskStatus.DONE;
+        }
+        if (submitted != null) {
+            return TaskStatus.TESTING;
+        }
+        if (taken != null) {
+            return TaskStatus.IN_PROGRESS;
+        }
+        return TaskStatus.OPEN;
     }
 
     /** Leader/manager assigns an open task to a member. Assigning does NOT start it — the assignee presses "Start". */
@@ -242,7 +307,7 @@ public class TaskService {
     public TaskDto propose(TaskRequest request, TeamMembership actor) {
         Team team = actor.getTeam();
         Employee me = actor.getEmployee();
-        Task task = taskRepository.save(Task.builder()
+        Task task = Task.builder()
                 .title(request.title())
                 .description(request.description())
                 .priority(request.priority() != null ? request.priority() : TaskPriority.MEDIUM)
@@ -251,7 +316,12 @@ public class TaskService {
                 .createdBy(me)
                 .assignee(me)
                 .status(TaskStatus.PENDING)
-                .build());
+                .build();
+        // Record any supplied lifecycle times (validated) on the proposal; it stays PENDING until a leader
+        // confirms it, at which point those recorded times decide its real status (see approveProposal).
+        applyLifecycleTimes(task, request);
+        task.setStatus(TaskStatus.PENDING);
+        task = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskEvents.TaskProposed(
                 task.getId(), team.getId(), task.getTitle(), me.getFullName(), me.getId()));
         return TaskDto.from(task);
@@ -265,8 +335,17 @@ public class TaskService {
         if (task.getStatus() != TaskStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is not a pending proposal");
         }
-        task.setStatus(TaskStatus.IN_PROGRESS);
-        task.setTakenAt(Instant.now());
+        // Promote to the status implied by the recorded lifecycle times; a plain proposal just starts now.
+        if (task.getCompletedAt() != null) {
+            task.setStatus(TaskStatus.DONE);
+        } else if (task.getSubmittedAt() != null) {
+            task.setStatus(TaskStatus.TESTING);
+        } else if (task.getTakenAt() != null) {
+            task.setStatus(TaskStatus.IN_PROGRESS);
+        } else {
+            task.setStatus(TaskStatus.IN_PROGRESS);
+            task.setTakenAt(Instant.now());
+        }
         return TaskDto.from(taskRepository.save(task));
     }
 

@@ -175,8 +175,15 @@ public final class Dtos {
         }
     }
 
+    /**
+     * The four lifecycle timestamps let a task be entered with real (often past) times — to record work
+     * that already happened. All optional; the task's status is derived from the furthest one supplied:
+     * createdAt→(OPEN), takenAt→IN_PROGRESS, submittedAt→TESTING, completedAt→DONE. They must be in
+     * non-decreasing order, and each later one requires {@code takenAt}. {@code createdAt} defaults to now.
+     */
     public record TaskRequest(@NotBlank @Size(max = 120) String title, String description, TaskPriority priority,
-                              LocalDate deadline, List<Long> tagIds, Long assigneeId, Long reviewerId) {
+                              LocalDate deadline, List<Long> tagIds, Long assigneeId, Long reviewerId,
+                              Instant createdAt, Instant takenAt, Instant submittedAt, Instant completedAt) {
     }
 
     public record AssignRequest(@NotNull Long employeeId) {

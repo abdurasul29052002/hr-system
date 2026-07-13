@@ -90,7 +90,14 @@
     "report": "Bildirish",
     "proposeModalHint": "Nima ustida ishlayotganingizni yozing. Leader uni vazifa sifatida tasdiqlaydi.",
     "sendForApproval": "Tasdiqqa yuborish",
-    "descriptionHint": "Tafsilotlar shu yerda — nom qisqa bo'lsin."
+    "descriptionHint": "Tafsilotlar shu yerda — nom qisqa bo'lsin.",
+    "proposeTitle": "Task qo'shish",
+    "proposeNote": "Siz task qo'shyapsiz — u jamoaga ko'rinishidan oldin leader tasdig'ini kutadi.",
+    "timesSection": "Vaqtlar (ixtiyoriy — ilgari bajarilgan ish uchun)",
+    "createdAt": "Yaratilgan",
+    "startedAt": "Boshlangan",
+    "finishedAt": "Tugatilgan (testga)",
+    "reviewedAt": "Testdan o'tgan (bajarilgan)"
   },
   "employees": {
     "title": "Jamoa a'zolari",
