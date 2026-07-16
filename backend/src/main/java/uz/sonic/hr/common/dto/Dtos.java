@@ -160,8 +160,8 @@ public final class Dtos {
     public record TaskDto(Long id, String title, String description, TaskPriority priority, TaskStatus status,
                           Long createdById, String createdByName, Long assigneeId, String assigneeName,
                           Long reviewerId, String reviewerName,
-                          List<TagDto> tags, LocalDate deadline, Instant createdAt, Instant takenAt,
-                          Instant submittedAt, Instant completedAt) {
+                          List<TagDto> tags, LocalDate deadline, LocalDate reviewDeadline,
+                          Instant createdAt, Instant takenAt, Instant submittedAt, Instant completedAt) {
 
         public static TaskDto from(Task t) {
             return new TaskDto(t.getId(), t.getTitle(), t.getDescription(), t.getPriority(), t.getStatus(),
@@ -171,7 +171,8 @@ public final class Dtos {
                     t.getReviewer() != null ? t.getReviewer().getId() : null,
                     t.getReviewer() != null ? t.getReviewer().getFullName() : null,
                     t.getTags().stream().map(TagDto::from).sorted(Comparator.comparing(TagDto::name)).toList(),
-                    t.getDeadline(), t.getCreatedAt(), t.getTakenAt(), t.getSubmittedAt(), t.getCompletedAt());
+                    t.getDeadline(), t.getReviewDeadline(),
+                    t.getCreatedAt(), t.getTakenAt(), t.getSubmittedAt(), t.getCompletedAt());
         }
     }
 
@@ -182,8 +183,9 @@ public final class Dtos {
      * non-decreasing order, and each later one requires {@code takenAt}. {@code createdAt} defaults to now.
      */
     public record TaskRequest(@NotBlank @Size(max = 120) String title, String description, TaskPriority priority,
-                              LocalDate deadline, List<Long> tagIds, Long assigneeId, Long reviewerId,
-                              Instant createdAt, Instant takenAt, Instant submittedAt, Instant completedAt) {
+                              LocalDate deadline, LocalDate reviewDeadline, List<Long> tagIds, Long assigneeId,
+                              Long reviewerId, Instant createdAt, Instant takenAt, Instant submittedAt,
+                              Instant completedAt) {
     }
 
     public record AssignRequest(@NotNull Long employeeId) {

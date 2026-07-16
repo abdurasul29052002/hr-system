@@ -67,10 +67,9 @@ public class StatsService {
             long cancelledForEmp = count(employeeTasks, TaskStatus.CANCELLED);
             long reviewed = reviewedCount.getOrDefault(first.getAssignee().getId(), 0L);
             long overdue = employeeTasks.stream().filter(t -> isOverdue(t, zone)).count();
+            // On time = the assignee delivered (submitted) by the work deadline — consistent with isOverdue.
             long onTime = employeeTasks.stream()
-                    .filter(t -> t.getStatus() == TaskStatus.DONE && t.getCompletedAt() != null)
-                    .filter(t -> t.getDeadline() == null
-                            || !t.getCompletedAt().atZone(zone).toLocalDate().isAfter(t.getDeadline()))
+                    .filter(t -> t.getStatus() == TaskStatus.DONE && !isOverdue(t, zone))
                     .count();
             OptionalDouble avgHours = employeeTasks.stream()
                     .filter(t -> t.getTakenAt() != null
@@ -170,13 +169,18 @@ public class StatsService {
         return tasks.stream().filter(t -> t.getStatus() == status).count();
     }
 
+    /**
+     * Whether the ASSIGNEE missed the work deadline. Their obligation ends when they SUBMIT for review, so
+     * this measures against submittedAt (their delivery), not completedAt — time a task spends waiting for a
+     * reviewer is the reviewer's, not theirs. Falls back to completedAt (a leader completing directly), else
+     * now (still in progress → not delivered). OPEN/CANCELLED/no-deadline are never overdue.
+     */
     private static boolean isOverdue(Task t, ZoneId zone) {
         if (t.getDeadline() == null || t.getStatus() == TaskStatus.CANCELLED || t.getStatus() == TaskStatus.OPEN) {
             return false;
         }
-        LocalDate finished = t.getCompletedAt() != null
-                ? t.getCompletedAt().atZone(zone).toLocalDate()
-                : LocalDate.now(zone);
-        return finished.isAfter(t.getDeadline());
+        Instant delivered = t.getSubmittedAt() != null ? t.getSubmittedAt() : t.getCompletedAt();
+        LocalDate deliveredDate = delivered != null ? delivered.atZone(zone).toLocalDate() : LocalDate.now(zone);
+        return deliveredDate.isAfter(t.getDeadline());
     }
 }

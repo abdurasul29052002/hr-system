@@ -70,7 +70,11 @@ public class Task {
     @ManyToOne(fetch = FetchType.LAZY)
     private Employee reviewer;
 
+    /** Work deadline: the assignee must SUBMIT the task for review by this date. */
     private LocalDate deadline;
+
+    /** Test/review deadline: the reviewer must approve (finish reviewing) by this date. */
+    private LocalDate reviewDeadline;
 
     @Builder.Default
     private Instant createdAt = Instant.now();

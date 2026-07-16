@@ -341,7 +341,8 @@ function TaskDetailModal({ task, isManager, myId, members, mentionMembers, onClo
             <p className="text-xs text-slate-400">{reviewed ? t('tasks.reviewedBy') : t('tasks.reviewer')}</p>
             <p className="text-slate-700">{task.reviewerName || t('common.none')}</p>
           </div>
-          {task.deadline && <div><p className="text-xs text-slate-400">{t('tasks.deadline')}</p><p className="text-slate-700">{new Date(task.deadline).toLocaleDateString()}</p></div>}
+          {task.deadline && <div><p className="text-xs text-slate-400">{t('tasks.workDeadline')}</p><p className="text-slate-700">{new Date(task.deadline).toLocaleDateString()}</p></div>}
+          {task.reviewDeadline && task.reviewDeadline !== task.deadline && <div><p className="text-xs text-slate-400">{t('tasks.testDeadline')}</p><p className="text-slate-700">{new Date(task.reviewDeadline).toLocaleDateString()}</p></div>}
         </div>
 
         <TaskActions task={task} isManager={isManager} myId={myId} members={members} onAction={onAction} />
@@ -377,6 +378,7 @@ function TaskFormModal({ members, tags, editTask, isManager, onClose, onSaved }:
   const [description, setDescription] = useState(editTask?.description ?? '');
   const [priority, setPriority] = useState<TaskPriority>(editTask?.priority ?? 'MEDIUM');
   const [deadline, setDeadline] = useState(editTask?.deadline ?? '');
+  const [reviewDeadline, setReviewDeadline] = useState(editTask?.reviewDeadline ?? '');
   const [assigneeId, setAssigneeId] = useState<number | ''>(editTask?.assigneeId ?? '');
   const [reviewerId, setReviewerId] = useState<number | ''>(editTask?.reviewerId ?? '');
   const [tagIds, setTagIds] = useState<number[]>(editTask?.tags.map((tg) => tg.id) ?? []);
@@ -401,6 +403,7 @@ function TaskFormModal({ members, tags, editTask, isManager, onClose, onSaved }:
         description: description || undefined,
         priority,
         deadline: deadline || null,
+        reviewDeadline: reviewDeadline || null,
         tagIds: isManager ? tagIds : [],
         assigneeId: isManager ? (assigneeId === '' ? null : assigneeId) : null,
         reviewerId: isManager ? (reviewerId === '' ? null : reviewerId) : null,
@@ -447,10 +450,14 @@ function TaskFormModal({ members, tags, editTask, isManager, onClose, onSaved }:
               <option value="HIGH">{t('tasks.prio.HIGH')}</option>
             </Select>
           </Field>
-          <Field label={t('tasks.deadline')}>
+          <Field label={t('tasks.workDeadline')}>
             <Input type="date" value={deadline ?? ''} onChange={(e) => setDeadline(e.target.value)} />
           </Field>
         </div>
+        <Field label={t('tasks.testDeadline')}>
+          <Input type="date" value={reviewDeadline ?? ''} min={deadline || undefined} onChange={(e) => setReviewDeadline(e.target.value)} />
+          <p className="mt-1 text-[11px] text-slate-400">{t('tasks.testDeadlineHint')}</p>
+        </Field>
         {isManager && (
           <div className="grid grid-cols-2 gap-3">
             <Field label={t('tasks.assignee')}>

@@ -69,6 +69,7 @@ export interface Task {
   reviewerName: string | null;
   tags: Tag[];
   deadline: string | null;
+  reviewDeadline: string | null;
   createdAt: string;
   takenAt: string | null;
   submittedAt: string | null;
@@ -167,6 +168,7 @@ export interface TaskBody {
   description?: string;
   priority?: TaskPriority;
   deadline?: string | null;
+  reviewDeadline?: string | null;
   tagIds?: number[];
   assigneeId?: number | null;
   reviewerId?: number | null;

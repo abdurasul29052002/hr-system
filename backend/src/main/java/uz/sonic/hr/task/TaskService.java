@@ -47,6 +47,7 @@ public class TaskService {
                 .description(request.description())
                 .priority(request.priority() != null ? request.priority() : TaskPriority.MEDIUM)
                 .deadline(request.deadline())
+                .reviewDeadline(request.reviewDeadline() != null ? request.reviewDeadline() : request.deadline())
                 .team(team)
                 .tags(resolveTags(request.tagIds() == null ? List.of() : request.tagIds(), team))
                 .createdBy(actor.getEmployee())
@@ -164,6 +165,7 @@ public class TaskService {
             task.setPriority(request.priority());
         }
         task.setDeadline(request.deadline());
+        task.setReviewDeadline(request.reviewDeadline() != null ? request.reviewDeadline() : request.deadline());
         if (request.tagIds() != null) {
             task.setTags(resolveTags(request.tagIds(), task.getTeam()));
         }
@@ -312,6 +314,7 @@ public class TaskService {
                 .description(request.description())
                 .priority(request.priority() != null ? request.priority() : TaskPriority.MEDIUM)
                 .deadline(request.deadline())
+                .reviewDeadline(request.reviewDeadline() != null ? request.reviewDeadline() : request.deadline())
                 .team(team)
                 .createdBy(me)
                 .assignee(me)

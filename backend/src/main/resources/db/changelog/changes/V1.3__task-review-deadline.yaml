@@ -1,0 +1,21 @@
+databaseChangeLog:
+  # Splits the single deadline into a work deadline (assignee submits by) and a review/test deadline
+  # (reviewer approves by). Existing rows get review_deadline = deadline so historical stats are unchanged.
+  - changeSet:
+      id: v1.3-add-task-review-deadline
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            tableName: tasks
+            columns:
+              - column:
+                  name: review_deadline
+                  type: DATE
+  - changeSet:
+      id: v1.3-backfill-review-deadline
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - sql:
+            sql: UPDATE tasks SET review_deadline = deadline WHERE review_deadline IS NULL
