@@ -125,6 +125,9 @@ export interface ActiveTask {
   priority: TaskPriority;
   deadline: string | null;
   takenAt: string | null;
+  // True when this task occupies the member as its REVIEWER (they are testing it), false when it occupies
+  // them as the ASSIGNEE. A task in review shows under both, labelled differently.
+  reviewing: boolean;
 }
 
 export interface MemberActivity {

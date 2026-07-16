@@ -121,9 +121,9 @@ public class MonthlyReportService {
     }
 
     private PdfPTable memberTable(MonthlyStats s) throws DocumentException {
-        PdfPTable table = new PdfPTable(new float[]{3, 1.2f, 1.4f, 1.4f, 1.2f, 1.4f});
+        PdfPTable table = new PdfPTable(new float[]{3, 1.2f, 1.4f, 1.4f, 1.2f, 1.3f, 1.4f});
         table.setWidthPercentage(100);
-        String[] heads = {"Member", "Taken", "Completed", "On time", "Overdue", "Avg hrs"};
+        String[] heads = {"Member", "Taken", "Completed", "On time", "Overdue", "Reviewed", "Avg hrs"};
         for (String h : heads) {
             PdfPCell hc = new PdfPCell(new Phrase(h, font(9, Font.BOLD, SLATE)));
             hc.setBackgroundColor(HEADER_BG);
@@ -147,6 +147,7 @@ public class MonthlyReportService {
             table.addCell(bodyCell(String.valueOf(e.completed()), bg, Element.ALIGN_CENTER, Font.NORMAL));
             table.addCell(bodyCell(String.valueOf(e.onTime()), bg, Element.ALIGN_CENTER, Font.NORMAL));
             table.addCell(bodyCell(String.valueOf(e.overdue()), bg, Element.ALIGN_CENTER, Font.NORMAL));
+            table.addCell(bodyCell(String.valueOf(e.reviewed()), bg, Element.ALIGN_CENTER, Font.NORMAL));
             table.addCell(bodyCell(e.avgCompletionHours() != null ? String.valueOf(e.avgCompletionHours()) : "—",
                     bg, Element.ALIGN_CENTER, Font.NORMAL));
         }

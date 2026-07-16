@@ -169,8 +169,10 @@ export default function StatsPage() {
                       ) : (
                         <ul className="space-y-1.5">
                           {a.activeTasks.map((tk) => (
-                            <li key={tk.id} className="flex items-center gap-2 text-sm">
-                              <Badge color={STATUS_COLOR[tk.status]}>{t(STATUS_KEY[tk.status])}</Badge>
+                            <li key={`${tk.id}-${tk.reviewing ? 'r' : 'a'}`} className="flex items-center gap-2 text-sm">
+                              {tk.reviewing
+                                ? <Badge color="blue">{t('stats.reviewing')}</Badge>
+                                : <Badge color={STATUS_COLOR[tk.status]}>{t(STATUS_KEY[tk.status])}</Badge>}
                               <span className="min-w-0 flex-1 truncate text-slate-700">{tk.title}</span>
                               <Badge color={PRIO_COLOR[tk.priority]}>{t(`tasks.prio.${tk.priority}`)}</Badge>
                             </li>
@@ -223,9 +225,12 @@ export default function StatsPage() {
                           </div>
                           <span className="text-sm font-semibold text-slate-600">{e.taken} {t('stats.taken')}</span>
                         </div>
-                        {/* This member's proportional status-distribution bar (overdue → red). */}
+                        {/* This member's proportional status-distribution bar (overdue → red). A pure reviewer
+                            with no tasks of their own has nothing to plot — show a review-only hint instead. */}
                         <div className="mb-2">
-                          <DistBar slices={memberSlices} total={memberTotal} />
+                          {e.taken > 0
+                            ? <DistBar slices={memberSlices} total={memberTotal} />
+                            : <p className="text-xs text-slate-400">🧪 {e.reviewed} {t('stats.reviewedOnly')}</p>}
                         </div>
                         {/* Explicit per-category counts: how many of each kind this member has. */}
                         <div className="grid grid-cols-4 gap-2 text-center text-xs">

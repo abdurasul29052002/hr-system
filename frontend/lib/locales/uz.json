@@ -211,6 +211,8 @@
     "noActive": "Hozir hech kim ishlamayapti",
     "active": "faol",
     "idle": "Faol task yo'q",
+    "reviewing": "Tekshiryapti",
+    "reviewedOnly": "shu oyda tekshirilgan",
     "performance": "Samaradorlik",
     "done": "bajarildi",
     "onTime": "Muddatida",

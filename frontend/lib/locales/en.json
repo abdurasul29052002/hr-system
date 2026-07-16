@@ -211,6 +211,8 @@
     "noActive": "No one is working right now",
     "active": "active",
     "idle": "No active tasks",
+    "reviewing": "Reviewing",
+    "reviewedOnly": "reviewed this month",
     "performance": "Performance",
     "done": "done",
     "onTime": "On time",

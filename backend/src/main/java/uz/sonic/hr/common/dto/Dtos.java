@@ -213,13 +213,17 @@ public final class Dtos {
                                List<StatusSlice> distribution) {
     }
 
-    /** A task a member is actively working on right now. */
+    /**
+     * A task a member is actively occupied by right now. {@code reviewing} distinguishes the two ways a
+     * task can occupy someone: the ASSIGNEE doing/awaiting-test on it (false), or the REVIEWER testing it
+     * (true). A TESTING task therefore surfaces under BOTH its assignee (false) and its reviewer (true).
+     */
     public record ActiveTaskDto(Long id, String title, TaskStatus status, TaskPriority priority,
-                                LocalDate deadline, Instant takenAt) {
+                                LocalDate deadline, Instant takenAt, boolean reviewing) {
 
-        public static ActiveTaskDto from(Task t) {
+        public static ActiveTaskDto from(Task t, boolean reviewing) {
             return new ActiveTaskDto(t.getId(), t.getTitle(), t.getStatus(), t.getPriority(),
-                    t.getDeadline(), t.getTakenAt());
+                    t.getDeadline(), t.getTakenAt(), reviewing);
         }
     }
 

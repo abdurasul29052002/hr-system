@@ -147,7 +147,7 @@ class StatsServiceTest {
     @Test
     void current_groupsActiveTasksByMember() {
         Task working = julyTasks().get(2); // t3 IN_PROGRESS, nodira
-        when(taskRepo.findAllByTeamIdAndStatusInOrderByPriorityDescCreatedAtDesc(eq(TEAM_ID), any()))
+        when(taskRepo.findActiveWithParticipants(eq(TEAM_ID), any()))
                 .thenReturn(List.of(working));
 
         TeamMembership nodiraMember = mock(TeamMembership.class);
@@ -163,5 +163,72 @@ class StatsServiceTest {
         assertThat(byName).containsKey("Nodira");
         assertThat(byName.get("Nodira").activeTasks()).hasSize(1);
         assertThat(byName.get("Nodira").activeTasks().get(0).title()).isEqualTo("Working");
+        assertThat(byName.get("Nodira").activeTasks().get(0).reviewing()).isFalse();
+    }
+
+    @Test
+    void current_surfacesTestingTaskUnderAssigneeAndReviewer() {
+        // Jasur owns it (in TESTING), Nodira reviews it — it must occupy BOTH, differently labelled.
+        Task inReview = Task.builder().id(9L).title("Awaiting review").status(TaskStatus.TESTING)
+                .assignee(jasur).reviewer(nodira).takenAt(on(2, 9)).submittedAt(on(4, 12)).build();
+        when(taskRepo.findActiveWithParticipants(eq(TEAM_ID), any())).thenReturn(List.of(inReview));
+
+        TeamMembership jasurMember = mock(TeamMembership.class);
+        when(jasurMember.getEmployee()).thenReturn(jasur);
+        when(jasurMember.getLabels()).thenReturn(Set.of());
+        TeamMembership nodiraMember = mock(TeamMembership.class);
+        when(nodiraMember.getEmployee()).thenReturn(nodira);
+        when(nodiraMember.getLabels()).thenReturn(Set.of());
+        when(memberRepo.findAllByTeamIdWithEmployee(TEAM_ID)).thenReturn(List.of(jasurMember, nodiraMember));
+
+        Map<String, MemberActivityDto> byName = stats.current(viewer).stream()
+                .collect(Collectors.toMap(MemberActivityDto::fullName, Function.identity()));
+
+        // Assignee: has it, not as a review.
+        assertThat(byName.get("Jasur").activeTasks()).hasSize(1);
+        assertThat(byName.get("Jasur").activeTasks().get(0).reviewing()).isFalse();
+        // Reviewer: same task surfaces as "reviewing".
+        assertThat(byName.get("Nodira").activeTasks()).hasSize(1);
+        assertThat(byName.get("Nodira").activeTasks().get(0).id()).isEqualTo(9L);
+        assertThat(byName.get("Nodira").activeTasks().get(0).reviewing()).isTrue();
+    }
+
+    @Test
+    void monthly_creditsPureReviewersWithNoOwnTasks() {
+        // Nodira took no task this month but reviewed Jasur's two DONE tasks → she must appear with reviewed=2.
+        Task t1 = Task.builder().id(1L).title("A").status(TaskStatus.DONE).assignee(jasur).reviewer(nodira)
+                .deadline(LocalDate.of(2026, 7, 10)).takenAt(on(1, 9)).submittedAt(on(5, 12)).completedAt(on(6, 12))
+                .build();
+        Task t2 = Task.builder().id(2L).title("B").status(TaskStatus.DONE).assignee(jasur).reviewer(nodira)
+                .deadline(LocalDate.of(2026, 7, 10)).takenAt(on(1, 9)).submittedAt(on(5, 12)).completedAt(on(6, 12))
+                .build();
+        when(taskRepo.findAllCreatedBetween(eq(TEAM_ID), any(), any())).thenReturn(List.of(t1, t2));
+        // Reviews are credited by completion month, so the reviewed count comes from findAllCompletedBetween.
+        when(taskRepo.findAllCompletedBetween(eq(TEAM_ID), any(), any())).thenReturn(List.of(t1, t2));
+
+        MonthlyStats m = stats.monthly(viewer, 2026, 7);
+
+        var nodiraStats = m.perEmployee().stream().filter(e -> e.employeeId() == 65L).findFirst().orElseThrow();
+        assertThat(nodiraStats.taken()).isZero();
+        assertThat(nodiraStats.completed()).isZero();
+        assertThat(nodiraStats.reviewed()).isEqualTo(2);
+        // Jasur (the assignee) is credited as reviewed=0 and appears ahead of the pure reviewer.
+        assertThat(m.perEmployee().get(0).fullName()).isEqualTo("Jasur");
+    }
+
+    @Test
+    void monthly_creditsReviewByCompletionMonthNotCreationMonth() {
+        // Task created in a PRIOR month (so findAllCreatedBetween is empty for this month) but reviewed and
+        // completed THIS month → the reviewer must still be credited this month, by completion window.
+        Task reviewedThisMonth = Task.builder().id(7L).title("Cross-month").status(TaskStatus.DONE)
+                .assignee(jasur).reviewer(nodira)
+                .takenAt(on(1, 9)).submittedAt(on(2, 9)).completedAt(on(3, 9)).build();
+        when(taskRepo.findAllCreatedBetween(eq(TEAM_ID), any(), any())).thenReturn(List.of());
+        when(taskRepo.findAllCompletedBetween(eq(TEAM_ID), any(), any())).thenReturn(List.of(reviewedThisMonth));
+
+        MonthlyStats m = stats.monthly(viewer, 2026, 7);
+
+        var nodiraStats = m.perEmployee().stream().filter(e -> e.employeeId() == 65L).findFirst().orElseThrow();
+        assertThat(nodiraStats.reviewed()).isEqualTo(1);
     }
 }

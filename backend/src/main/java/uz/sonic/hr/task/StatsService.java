@@ -33,6 +33,10 @@ public class StatsService {
         Instant from = YearMonth.of(year, month).atDay(1).atStartOfDay(zone).toInstant();
         Instant to = YearMonth.of(year, month).plusMonths(1).atDay(1).atStartOfDay(zone).toInstant();
         List<Task> tasks = taskRepository.findAllCreatedBetween(teamId, from, to);
+        // Tasks whose review was FINISHED this month (approved → DONE, by completedAt). Powers both
+        // "employee of the month" and the reviewed counts — a review is credited to the month it was
+        // completed in, independent of when the task was created (consistent windows).
+        List<Task> completedThisMonth = taskRepository.findAllCompletedBetween(teamId, from, to);
 
         long created = tasks.size();
         long completed = count(tasks, TaskStatus.DONE);
@@ -49,11 +53,14 @@ public class StatsService {
             }
         }
 
-        // How many DONE tasks each person reviewed (approved) this month — powers "who reviewed it".
+        // How many tasks each person reviewed (approved) this month — powers "who reviewed it" and the
+        // reviewed count. Keyed off completion (not creation) so a review counts in the month it happened.
         Map<Long, Long> reviewedCount = new HashMap<>();
-        for (Task task : tasks) {
-            if (task.getStatus() == TaskStatus.DONE && task.getReviewer() != null) {
+        Map<Long, String> reviewerName = new HashMap<>();
+        for (Task task : completedThisMonth) {
+            if (task.getReviewer() != null) {
                 reviewedCount.merge(task.getReviewer().getId(), 1L, Long::sum);
+                reviewerName.putIfAbsent(task.getReviewer().getId(), task.getReviewer().getFullName());
             }
         }
 
@@ -88,7 +95,17 @@ public class StatsService {
                     avgHours.isPresent() ? Math.round(avgHours.getAsDouble() * 10) / 10.0 : null,
                     briefs));
         }
+        // Reviewers who took NO task themselves this month would otherwise be invisible here — their review
+        // work is real work. Add a row for each (zeroed assignee metrics, only their reviewed count) so the
+        // performance section credits pure reviewers too.
+        for (Map.Entry<Long, Long> e : reviewedCount.entrySet()) {
+            if (!byAssignee.containsKey(e.getKey())) {
+                perEmployee.add(new EmployeeStats(e.getKey(), reviewerName.get(e.getKey()),
+                        0, 0, 0, 0, 0, 0, 0, e.getValue(), null, List.of()));
+            }
+        }
         perEmployee.sort(Comparator.comparingLong(EmployeeStats::completed).reversed()
+                .thenComparing(Comparator.comparingLong(EmployeeStats::reviewed).reversed())
                 .thenComparing(Comparator.comparingLong(EmployeeStats::onTime).reversed()));
 
         // Employee of the month: whoever COMPLETED the most tasks THIS month (by completedAt), independent
@@ -96,7 +113,7 @@ public class StatsService {
         // historical entries count toward the month they were completed in, not viewed in).
         Map<Long, Long> doneByEmp = new HashMap<>();
         Map<Long, String> doneEmpName = new LinkedHashMap<>();
-        for (Task t : taskRepository.findAllCompletedBetween(teamId, from, to)) {
+        for (Task t : completedThisMonth) {
             if (t.getAssignee() != null) {
                 doneByEmp.merge(t.getAssignee().getId(), 1L, Long::sum);
                 doneEmpName.putIfAbsent(t.getAssignee().getId(), t.getAssignee().getFullName());
@@ -130,18 +147,26 @@ public class StatsService {
     @Transactional(readOnly = true)
     public List<MemberActivityDto> current(TeamMembership viewer) {
         Long teamId = viewer.getTeam().getId();
-        List<Task> active = taskRepository.findAllByTeamIdAndStatusInOrderByPriorityDescCreatedAtDesc(
+        List<Task> active = taskRepository.findActiveWithParticipants(
                 teamId, List.of(TaskStatus.IN_PROGRESS, TaskStatus.TESTING));
-        Map<Long, List<ActiveTaskDto>> byAssignee = new HashMap<>();
+        Map<Long, List<ActiveTaskDto>> byMember = new HashMap<>();
         for (Task t : active) {
-            if (t.getAssignee() != null) {
-                byAssignee.computeIfAbsent(t.getAssignee().getId(), k -> new ArrayList<>()).add(ActiveTaskDto.from(t));
+            Long assigneeId = t.getAssignee() != null ? t.getAssignee().getId() : null;
+            if (assigneeId != null) {
+                // The assignee is occupied by it (IN_PROGRESS = doing, TESTING = standing by to fix bugs).
+                byMember.computeIfAbsent(assigneeId, k -> new ArrayList<>()).add(ActiveTaskDto.from(t, false));
+            }
+            // A task in review also occupies its reviewer — surface it under them as "reviewing" (unless the
+            // reviewer is the assignee, who already has it, to avoid listing the same task twice for them).
+            if (t.getStatus() == TaskStatus.TESTING && t.getReviewer() != null
+                    && !t.getReviewer().getId().equals(assigneeId)) {
+                byMember.computeIfAbsent(t.getReviewer().getId(), k -> new ArrayList<>()).add(ActiveTaskDto.from(t, true));
             }
         }
         List<TeamMembership> memberships = membershipRepository.findAllByTeamIdWithEmployee(teamId);
         List<MemberActivityDto> result = new ArrayList<>();
         for (TeamMembership m : memberships) {
-            List<ActiveTaskDto> tasks = byAssignee.getOrDefault(m.getEmployee().getId(), List.of());
+            List<ActiveTaskDto> tasks = byMember.getOrDefault(m.getEmployee().getId(), List.of());
             List<MemberLabelDto> labels = m.getLabels().stream()
                     .sorted(Comparator.comparing(MemberLabel::getName))
                     .map(MemberLabelDto::from).toList();

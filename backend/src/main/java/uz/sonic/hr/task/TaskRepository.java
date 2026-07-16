@@ -16,6 +16,20 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findAllByTeamIdAndStatusInOrderByPriorityDescCreatedAtDesc(Long teamId, Collection<TaskStatus> statuses);
 
+    /**
+     * Active tasks for the live "who is doing what" view, with assignee AND reviewer fetch-joined so the
+     * service can group a task under both without an N+1. Both are @ManyToOne, so no cartesian blow-up.
+     */
+    @Query("""
+            select t from Task t
+            left join fetch t.assignee
+            left join fetch t.reviewer
+            where t.team.id = :teamId and t.status in :statuses
+            order by t.priority desc, t.createdAt desc
+            """)
+    List<Task> findActiveWithParticipants(@Param("teamId") Long teamId,
+                                          @Param("statuses") Collection<TaskStatus> statuses);
+
     List<Task> findAllByTeamIdAndAssigneeIdOrderByCreatedAtDesc(Long teamId, Long assigneeId);
 
     List<Task> findAllByTeamIdAndAssigneeIdAndStatusOrderByCreatedAtDesc(Long teamId, Long assigneeId,
@@ -31,11 +45,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
                                      @Param("from") Instant from,
                                      @Param("to") Instant to);
 
-    /** DONE tasks whose completion falls in the window — powers "employee of the month" by work actually
-     *  finished that month (independent of when the task was created). Assignee fetch-joined to avoid N+1. */
+    /** DONE tasks whose completion falls in the window — powers "employee of the month" and reviewer credit
+     *  by work actually finished that month (independent of when the task was created). Assignee AND reviewer
+     *  fetch-joined to avoid N+1 (both @ManyToOne, so no cartesian blow-up). */
     @Query("""
             select t from Task t
             left join fetch t.assignee
+            left join fetch t.reviewer
             where t.team.id = :teamId
               and t.status = uz.sonic.hr.common.enums.TaskStatus.DONE
               and t.completedAt >= :from and t.completedAt < :to
