@@ -31,6 +31,19 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
                                      @Param("from") Instant from,
                                      @Param("to") Instant to);
 
+    /** DONE tasks whose completion falls in the window — powers "employee of the month" by work actually
+     *  finished that month (independent of when the task was created). Assignee fetch-joined to avoid N+1. */
+    @Query("""
+            select t from Task t
+            left join fetch t.assignee
+            where t.team.id = :teamId
+              and t.status = uz.sonic.hr.common.enums.TaskStatus.DONE
+              and t.completedAt >= :from and t.completedAt < :to
+            """)
+    List<Task> findAllCompletedBetween(@Param("teamId") Long teamId,
+                                       @Param("from") Instant from,
+                                       @Param("to") Instant to);
+
     /**
      * Tasks whose lifespan overlaps the window: created before it ends and not finished before it starts.
      * CANCELLED tasks are excluded — they never get a completedAt, so a null-means-ongoing predicate would

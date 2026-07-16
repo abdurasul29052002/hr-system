@@ -92,10 +92,21 @@ public class StatsService {
         perEmployee.sort(Comparator.comparingLong(EmployeeStats::completed).reversed()
                 .thenComparing(Comparator.comparingLong(EmployeeStats::onTime).reversed()));
 
-        String employeeOfMonth = perEmployee.stream()
-                .filter(e -> e.completed() > 0)
-                .map(EmployeeStats::fullName)
-                .findFirst().orElse(null);
+        // Employee of the month: whoever COMPLETED the most tasks THIS month (by completedAt), independent
+        // of when each task was created — so it reflects work actually finished this month (and back-dated
+        // historical entries count toward the month they were completed in, not viewed in).
+        Map<Long, Long> doneByEmp = new HashMap<>();
+        Map<Long, String> doneEmpName = new LinkedHashMap<>();
+        for (Task t : taskRepository.findAllCompletedBetween(teamId, from, to)) {
+            if (t.getAssignee() != null) {
+                doneByEmp.merge(t.getAssignee().getId(), 1L, Long::sum);
+                doneEmpName.putIfAbsent(t.getAssignee().getId(), t.getAssignee().getFullName());
+            }
+        }
+        String employeeOfMonth = doneByEmp.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(e -> doneEmpName.get(e.getKey()))
+                .orElse(null);
 
         // Overall distribution of every task in the month, one slice per category (overdue carved out
         // of its status). Slices partition totalCreated — the phone-storage-style breakdown bar.

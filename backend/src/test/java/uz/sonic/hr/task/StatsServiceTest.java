@@ -87,6 +87,9 @@ class StatsServiceTest {
     @Test
     void monthly_aggregatesTotalsAndOverdueAndEmployeeOfMonth() {
         when(taskRepo.findAllCreatedBetween(eq(TEAM_ID), any(), any())).thenReturn(julyTasks());
+        // Employee of the month is now driven by tasks COMPLETED this month (both of Jasur's are DONE).
+        when(taskRepo.findAllCompletedBetween(eq(TEAM_ID), any(), any()))
+                .thenReturn(julyTasks().stream().filter(t -> t.getStatus() == TaskStatus.DONE).toList());
 
         MonthlyStats m = stats.monthly(viewer, 2026, 7);
 
@@ -95,7 +98,7 @@ class StatsServiceTest {
         assertThat(m.totalInProgress()).isEqualTo(1);
         assertThat(m.totalCancelled()).isEqualTo(1);
         assertThat(m.totalOverdue()).isEqualTo(1); // only the late DONE task
-        assertThat(m.employeeOfMonth()).isEqualTo("Jasur"); // 2 completed vs Nodira 0
+        assertThat(m.employeeOfMonth()).isEqualTo("Jasur"); // Jasur completed 2 this month, Nodira 0
     }
 
     @Test
