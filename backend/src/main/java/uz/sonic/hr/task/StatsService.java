@@ -5,8 +5,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.sonic.hr.common.enums.TaskStatus;
 import uz.sonic.hr.team.MemberLabel;
+import uz.sonic.hr.team.Team;
 import uz.sonic.hr.team.TeamMembership;
 import uz.sonic.hr.team.TeamMembershipRepository;
+import uz.sonic.hr.team.TeamRepository;
 import uz.sonic.hr.common.dto.Dtos.*;
 
 import java.time.*;
@@ -18,6 +20,7 @@ public class StatsService {
 
     private final TaskRepository taskRepository;
     private final TeamMembershipRepository membershipRepository;
+    private final TeamRepository teamRepository;
 
     /**
      * Fixed reporting zone (Uzbekistan, UTC+5, no DST). Using a fixed zone instead of the JVM default
@@ -176,6 +179,42 @@ public class StatsService {
         // busiest first
         result.sort(Comparator.comparingInt((MemberActivityDto a) -> a.activeTasks().size()).reversed());
         return result;
+    }
+
+    /**
+     * Builds the daily morning digest for EVERY team: who is actively working on what (assignee's
+     * IN_PROGRESS / TESTING tasks, grouped per worker) plus the tasks still OPEN (unclaimed). Everything is
+     * resolved to display strings here, inside the transaction, so the caller can format and send it to
+     * Telegram without touching the persistence context.
+     */
+    @Transactional(readOnly = true)
+    public List<TeamDigestDto> buildDailyDigests() {
+        List<TeamDigestDto> digests = new ArrayList<>();
+        for (Team team : teamRepository.findAll()) {
+            Long teamId = team.getId();
+            // Who's doing what — group active tasks by assignee, keeping the query's priority order.
+            Map<Long, String> workerName = new LinkedHashMap<>();
+            Map<Long, List<DigestTaskDto>> workerTasks = new LinkedHashMap<>();
+            for (Task t : taskRepository.findActiveWithParticipants(
+                    teamId, List.of(TaskStatus.IN_PROGRESS, TaskStatus.TESTING))) {
+                if (t.getAssignee() == null) {
+                    continue;
+                }
+                Long id = t.getAssignee().getId();
+                workerName.putIfAbsent(id, t.getAssignee().getFullName());
+                workerTasks.computeIfAbsent(id, k -> new ArrayList<>())
+                        .add(new DigestTaskDto(t.getTitle(), t.getStatus()));
+            }
+            List<DigestWorkerDto> workers = workerName.entrySet().stream()
+                    .map(e -> new DigestWorkerDto(e.getValue(), workerTasks.get(e.getKey())))
+                    .toList();
+            // Tasks nobody has picked up yet.
+            List<String> openTasks = taskRepository
+                    .findAllByTeamIdAndStatusOrderByPriorityDescCreatedAtDesc(teamId, TaskStatus.OPEN)
+                    .stream().map(Task::getTitle).toList();
+            digests.add(new TeamDigestDto(teamId, team.getName(), workers, openTasks));
+        }
+        return digests;
     }
 
     /** Every task whose taken → completed span overlaps the given month, for the Gantt timeline. */

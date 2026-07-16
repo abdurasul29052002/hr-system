@@ -91,7 +91,13 @@ public final class BotMessages {
                 Map.entry("st_IN_PROGRESS", "In progress"),
                 Map.entry("st_TESTING", "In review"),
                 Map.entry("st_DONE", "Done"),
-                Map.entry("st_CANCELLED", "Cancelled")));
+                Map.entry("st_CANCELLED", "Cancelled"),
+                Map.entry("digest_title", "☀️ Good morning! Here's your team \"%s\" right now:"),
+                Map.entry("digest_working", "👥 Who's working:"),
+                Map.entry("digest_none_working", "😴 Nobody has an active task yet."),
+                Map.entry("digest_open", "📋 Still open (%s):"),
+                Map.entry("digest_more", "…and %s more"),
+                Map.entry("digest_footer", "Assign or follow up in the app — have a productive day! 💪")));
 
         M.put(Language.RU, Map.<String, String>ofEntries(
                 Map.entry("language_set", "✅ Язык установлен: Русский"),
@@ -172,7 +178,13 @@ public final class BotMessages {
                 Map.entry("st_IN_PROGRESS", "В работе"),
                 Map.entry("st_TESTING", "На проверке"),
                 Map.entry("st_DONE", "Выполнена"),
-                Map.entry("st_CANCELLED", "Отменена")));
+                Map.entry("st_CANCELLED", "Отменена"),
+                Map.entry("digest_title", "☀️ Доброе утро! Ваша команда «%s» сейчас:"),
+                Map.entry("digest_working", "👥 Кто в работе:"),
+                Map.entry("digest_none_working", "😴 Пока никто не занят задачей."),
+                Map.entry("digest_open", "📋 Ещё открыто (%s):"),
+                Map.entry("digest_more", "…и ещё %s"),
+                Map.entry("digest_footer", "Назначьте или проверьте в приложении — продуктивного дня! 💪")));
 
         M.put(Language.UZ, Map.<String, String>ofEntries(
                 Map.entry("language_set", "✅ Til tanlandi: O'zbekcha"),
@@ -253,7 +265,13 @@ public final class BotMessages {
                 Map.entry("st_IN_PROGRESS", "Jarayonda"),
                 Map.entry("st_TESTING", "Testda"),
                 Map.entry("st_DONE", "Bajarilgan"),
-                Map.entry("st_CANCELLED", "Bekor qilingan")));
+                Map.entry("st_CANCELLED", "Bekor qilingan"),
+                Map.entry("digest_title", "☀️ Xayrli tong! «%s» jamoangiz hozir:"),
+                Map.entry("digest_working", "👥 Kim ish bilan band:"),
+                Map.entry("digest_none_working", "😴 Hozircha hech kim taskda band emas."),
+                Map.entry("digest_open", "📋 Hali ochiq (%s):"),
+                Map.entry("digest_more", "…va yana %s ta"),
+                Map.entry("digest_footer", "Ilovada biriktiring yoki kuzatib boring — mahsuldor kun tilaymiz! 💪")));
     }
 
     private BotMessages() {

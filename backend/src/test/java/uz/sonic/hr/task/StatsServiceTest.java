@@ -2,9 +2,11 @@ package uz.sonic.hr.task;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import uz.sonic.hr.common.dto.Dtos.DigestTaskDto;
 import uz.sonic.hr.common.dto.Dtos.MemberActivityDto;
 import uz.sonic.hr.common.dto.Dtos.MonthlyStats;
 import uz.sonic.hr.common.dto.Dtos.StatusSlice;
+import uz.sonic.hr.common.dto.Dtos.TeamDigestDto;
 import uz.sonic.hr.common.dto.Dtos.TimelineTaskDto;
 import uz.sonic.hr.common.enums.TaskStatus;
 import uz.sonic.hr.employee.Employee;
@@ -39,7 +41,8 @@ class StatsServiceTest {
 
     private final TaskRepository taskRepo = mock(TaskRepository.class);
     private final TeamMembershipRepository memberRepo = mock(TeamMembershipRepository.class);
-    private final StatsService stats = new StatsService(taskRepo, memberRepo);
+    private final uz.sonic.hr.team.TeamRepository teamRepo = mock(uz.sonic.hr.team.TeamRepository.class);
+    private final StatsService stats = new StatsService(taskRepo, memberRepo, teamRepo);
 
     private Employee jasur;
     private Employee nodira;
@@ -230,5 +233,33 @@ class StatsServiceTest {
 
         var nodiraStats = m.perEmployee().stream().filter(e -> e.employeeId() == 65L).findFirst().orElseThrow();
         assertThat(nodiraStats.reviewed()).isEqualTo(1);
+    }
+
+    @Test
+    void buildDailyDigests_groupsWorkersAndCollectsOpenTasks() {
+        Team team = mock(Team.class);
+        when(team.getId()).thenReturn(TEAM_ID);
+        when(team.getName()).thenReturn("Alpha");
+        when(teamRepo.findAll()).thenReturn(List.of(team));
+
+        // Jasur has two active tasks (in progress + in review), Nodira one → two worker lines.
+        Task a = Task.builder().id(1L).title("Build API").status(TaskStatus.IN_PROGRESS).assignee(jasur).build();
+        Task b = Task.builder().id(2L).title("Review PR").status(TaskStatus.TESTING).assignee(jasur).build();
+        Task c = Task.builder().id(3L).title("Fix bug").status(TaskStatus.IN_PROGRESS).assignee(nodira).build();
+        when(taskRepo.findActiveWithParticipants(eq(TEAM_ID), any())).thenReturn(List.of(a, b, c));
+
+        Task open1 = Task.builder().id(4L).title("Write docs").status(TaskStatus.OPEN).build();
+        when(taskRepo.findAllByTeamIdAndStatusOrderByPriorityDescCreatedAtDesc(TEAM_ID, TaskStatus.OPEN))
+                .thenReturn(List.of(open1));
+
+        List<TeamDigestDto> digests = stats.buildDailyDigests();
+
+        assertThat(digests).hasSize(1);
+        TeamDigestDto d = digests.get(0);
+        assertThat(d.teamName()).isEqualTo("Alpha");
+        assertThat(d.workers()).hasSize(2);
+        var jasurLine = d.workers().stream().filter(w -> w.name().equals("Jasur")).findFirst().orElseThrow();
+        assertThat(jasurLine.tasks()).extracting(DigestTaskDto::title).containsExactly("Build API", "Review PR");
+        assertThat(d.openTasks()).containsExactly("Write docs");
     }
 }

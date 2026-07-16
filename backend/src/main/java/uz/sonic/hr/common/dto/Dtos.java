@@ -232,6 +232,22 @@ public final class Dtos {
                                     List<MemberLabelDto> labels, List<ActiveTaskDto> activeTasks) {
     }
 
+    /** One task line in the morning digest: its title and current state. */
+    public record DigestTaskDto(String title, TaskStatus status) {
+    }
+
+    /** One worker's line in the morning digest: who, and the tasks they are on. */
+    public record DigestWorkerDto(String name, List<DigestTaskDto> tasks) {
+    }
+
+    /**
+     * A team's daily morning digest — who is working on what, plus tasks still open — fully resolved to
+     * display strings so it can be formatted and sent to Telegram outside any persistence context.
+     */
+    public record TeamDigestDto(Long teamId, String teamName, List<DigestWorkerDto> workers,
+                                List<String> openTasks) {
+    }
+
     /** One task on the monthly timeline (Gantt): its taken → completed span within the month. */
     public record TimelineTaskDto(Long id, String title, String assigneeName, TaskStatus status, TaskPriority priority,
                                   Instant createdAt, Instant takenAt, Instant submittedAt, Instant completedAt,

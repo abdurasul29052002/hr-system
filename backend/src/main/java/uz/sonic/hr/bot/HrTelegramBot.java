@@ -40,10 +40,13 @@ import uz.sonic.hr.task.*;
 import uz.sonic.hr.notification.*;
 import uz.sonic.hr.ticket.*;
 import uz.sonic.hr.common.storage.*;
+import uz.sonic.hr.common.dto.Dtos.DigestTaskDto;
+import uz.sonic.hr.common.dto.Dtos.DigestWorkerDto;
 import uz.sonic.hr.common.dto.Dtos.MonthlyStats;
 import uz.sonic.hr.common.dto.Dtos.TagDto;
 import uz.sonic.hr.common.dto.Dtos.TaskDto;
 import uz.sonic.hr.common.dto.Dtos.TaskRequest;
+import uz.sonic.hr.common.dto.Dtos.TeamDigestDto;
 import uz.sonic.hr.common.dto.Dtos.TeamJoinRequestDto;
 
 import java.time.LocalDate;
@@ -944,6 +947,80 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                 .filter(e -> e.getTelegramChatId() != null)
                 .ifPresent(assignee -> send(assignee.getTelegramChatId(),
                         BotMessages.get(assignee.getLanguage(), "notif_assigned", taskRef), null));
+    }
+
+    /**
+     * Morning digest → DM every linked LEADER and MANAGER of the team a "who is doing what + what is still
+     * open" summary, each in their own language. Called by the scheduled {@code DailyDigestService}.
+     */
+    public void sendDailyDigest(TeamDigestDto digest) {
+        if (!enabled) {
+            return;
+        }
+        for (TeamMembership membership : membershipRepository.findLinkedByTeamIdAndRoleIn(
+                digest.teamId(), List.of(Role.LEADER, Role.MANAGER))) {
+            Employee manager = membership.getEmployee();
+            send(manager.getTelegramChatId(), buildDigestText(manager.getLanguage(), digest), null);
+        }
+    }
+
+    // Digest caps — keep a busy team's message readable AND under Telegram's hard 4096-char limit (over which
+    // sendMessage 400s and the whole digest is silently lost). Headers still show the TRUE totals; the lists
+    // show a sample plus a "+N more" line. TELEGRAM_MAX is the final safety net for pathologically long titles.
+    private static final int DIGEST_MAX_WORKERS = 25;
+    private static final int DIGEST_MAX_TASKS_PER_WORKER = 8;
+    private static final int DIGEST_MAX_OPEN = 25;
+    private static final int TELEGRAM_MAX = 4096;
+
+    /** Renders the morning digest in the recipient's language. Dynamic parts are concatenated (not passed
+     *  through String.format) so a task title containing '%' can never break formatting. */
+    private String buildDigestText(Language lang, TeamDigestDto digest) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(BotMessages.get(lang, "digest_title", digest.teamName())).append("\n");
+
+        sb.append("\n").append(BotMessages.get(lang, "digest_working")).append("\n");
+        List<DigestWorkerDto> workers = digest.workers();
+        if (workers.isEmpty()) {
+            sb.append(BotMessages.get(lang, "digest_none_working")).append("\n");
+        } else {
+            int shownWorkers = Math.min(workers.size(), DIGEST_MAX_WORKERS);
+            for (int i = 0; i < shownWorkers; i++) {
+                DigestWorkerDto worker = workers.get(i);
+                List<DigestTaskDto> tasks = worker.tasks();
+                int shownTasks = Math.min(tasks.size(), DIGEST_MAX_TASKS_PER_WORKER);
+                List<String> parts = new ArrayList<>();
+                for (int j = 0; j < shownTasks; j++) {
+                    DigestTaskDto task = tasks.get(j);
+                    parts.add(task.title() + " (" + BotMessages.get(lang, "st_" + task.status().name()) + ")");
+                }
+                if (tasks.size() > shownTasks) {
+                    parts.add(BotMessages.get(lang, "digest_more", tasks.size() - shownTasks));
+                }
+                sb.append("• ").append(worker.name()).append(" — ").append(String.join(", ", parts)).append("\n");
+            }
+            if (workers.size() > shownWorkers) {
+                sb.append(BotMessages.get(lang, "digest_more", workers.size() - shownWorkers)).append("\n");
+            }
+        }
+
+        List<String> openTasks = digest.openTasks();
+        if (!openTasks.isEmpty()) {
+            sb.append("\n").append(BotMessages.get(lang, "digest_open", openTasks.size())).append("\n");
+            int shownOpen = Math.min(openTasks.size(), DIGEST_MAX_OPEN);
+            for (int i = 0; i < shownOpen; i++) {
+                sb.append("• ").append(openTasks.get(i)).append("\n");
+            }
+            if (openTasks.size() > shownOpen) {
+                sb.append(BotMessages.get(lang, "digest_more", openTasks.size() - shownOpen)).append("\n");
+            }
+        }
+
+        sb.append("\n").append(BotMessages.get(lang, "digest_footer"));
+
+        // Final safety net: even with the caps above, unusually long titles could push past Telegram's limit;
+        // a truncated digest still beats a silently-dropped one.
+        String text = sb.toString();
+        return text.length() > TELEGRAM_MAX ? text.substring(0, TELEGRAM_MAX - 1) + "…" : text;
     }
 
     /** Notifies every linked LEADER and MANAGER of the team, except the actor themselves. */
