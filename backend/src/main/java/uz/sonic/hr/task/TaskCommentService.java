@@ -98,7 +98,7 @@ public class TaskCommentService {
             if (!mentionedIds.isEmpty()) {
                 eventPublisher.publishEvent(new CommentEvents.CommentAdded(
                         comment.getId(), taskId, task.getTitle(), author.getId(),
-                        author.getFullName(), mentionedIds));
+                        author.getFullName(), request.content(), mentionedIds));
             }
         }
 
@@ -269,7 +269,7 @@ public class TaskCommentService {
             if (!mentionedIds.isEmpty()) {
                 eventPublisher.publishEvent(new CommentEvents.CommentAdded(
                         comment.getId(), taskId, task.getTitle(), author.getId(),
-                        author.getFullName(), mentionedIds));
+                        author.getFullName(), content, mentionedIds));
             }
         }
 

@@ -235,7 +235,8 @@
     "mentioned": "упомянул вас",
     "write": "Написать",
     "preview": "Просмотр",
-    "markdownHint": "Поддерживается Markdown · @ для упоминания"
+    "markdownHint": "Поддерживается Markdown · @ для упоминания",
+    "viaTelegram": "через Telegram"
   },
   "tickets": {
     "title": "Обращения",

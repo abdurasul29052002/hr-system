@@ -251,8 +251,8 @@ public final class Dtos {
 
     // Task Comments
     public record CommentDto(Long id, Long taskId, Long authorId, String authorName, String content,
-                             Instant createdAt, Instant updatedAt, List<Long> mentionedEmployeeIds,
-                             List<CommentAttachmentDto> attachments) {
+                             Instant createdAt, Instant updatedAt, boolean viaTelegram,
+                             List<Long> mentionedEmployeeIds, List<CommentAttachmentDto> attachments) {
 
         public static CommentDto from(TaskComment comment, StorageService storage) {
             return new CommentDto(
@@ -263,6 +263,7 @@ public final class Dtos {
                     comment.getContent(),
                     comment.getCreatedAt(),
                     comment.getUpdatedAt(),
+                    comment.getTelegramMessageId() != null, // this comment was posted by replying on Telegram
                     comment.getMentions().stream()
                             .map(m -> m.getMentionedEmployee().getId())
                             .toList(),

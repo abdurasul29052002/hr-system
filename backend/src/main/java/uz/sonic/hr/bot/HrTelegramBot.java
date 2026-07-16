@@ -904,9 +904,9 @@ public class HrTelegramBot extends TelegramLongPollingBot {
         if (!enabled) {
             return;
         }
-        // Notify mentioned users via Telegram
+        // Notify mentioned users via Telegram — include the FULL comment text so they can read (and reply
+        // to) it right from Telegram, GitHub-PR style.
         String taskRef = "#" + event.taskId() + " " + event.taskTitle();
-        String message = BotMessages.get(Language.EN, "notif_mentioned", event.authorName(), taskRef);
 
         for (Long mentionedId : event.mentionedIds()) {
             employeeRepository.findById(mentionedId)
@@ -916,7 +916,7 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                         SendMessage msg = SendMessage.builder()
                                 .chatId(mentioned.getTelegramChatId().toString())
                                 .text(BotMessages.get(mentioned.getLanguage(), "notif_mentioned",
-                                        event.authorName(), taskRef))
+                                        event.authorName(), taskRef, event.content()))
                                 .replyMarkup(org.telegram.telegrambots.meta.api.objects.replykeyboard.ForceReplyKeyboard.builder()
                                         .forceReply(true)
                                         .selective(true)

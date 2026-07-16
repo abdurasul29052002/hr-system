@@ -18,6 +18,6 @@ public final class CommentEvents {
      * @param mentionedIds   Set of employee IDs that were mentioned (excluding author)
      */
     public record CommentAdded(Long commentId, Long taskId, String taskTitle,
-                               Long authorId, String authorName, Set<Long> mentionedIds) {
+                               Long authorId, String authorName, String content, Set<Long> mentionedIds) {
     }
 }

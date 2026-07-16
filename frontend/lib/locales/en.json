@@ -235,7 +235,8 @@
     "mentioned": "mentioned you",
     "write": "Write",
     "preview": "Preview",
-    "markdownHint": "Markdown supported · @ to mention"
+    "markdownHint": "Markdown supported · @ to mention",
+    "viaTelegram": "via Telegram"
   },
   "tickets": {
     "title": "Support Tickets",

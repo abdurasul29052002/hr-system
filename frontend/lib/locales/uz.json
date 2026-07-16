@@ -235,7 +235,8 @@
     "mentioned": "sizni eslatdi",
     "write": "Yozish",
     "preview": "Ko'rish",
-    "markdownHint": "Markdown mumkin · @ orqali eslatma"
+    "markdownHint": "Markdown mumkin · @ orqali eslatma",
+    "viaTelegram": "Telegram orqali"
   },
   "tickets": {
     "title": "Murojaatlar",

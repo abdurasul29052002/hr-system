@@ -336,6 +336,12 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                       {formatTime(comment.createdAt)}
                       {comment.updatedAt && <span className="ml-1 italic">({t('comments.updated')})</span>}
                     </span>
+                    {comment.viaTelegram && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-600" title={t('comments.viaTelegram')}>
+                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M21.94 4.36 18.9 19.1c-.23 1.02-.84 1.27-1.7.79l-4.7-3.47-2.27 2.18c-.25.25-.46.46-.94.46l.33-4.78L18.6 5.9c.38-.34-.08-.53-.6-.19L6.55 12.9l-4.66-1.46c-1.01-.32-1.03-1.01.21-1.5l18.22-7.02c.84-.31 1.58.2 1.32 1.44Z" /></svg>
+                        {t('comments.viaTelegram')}
+                      </span>
+                    )}
                     {mine && (
                       <span className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                         <button onClick={() => handleEdit(comment)} title={t('comments.edit')} className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">

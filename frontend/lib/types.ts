@@ -213,6 +213,7 @@ export interface TaskComment {
   content: string;
   createdAt: string;
   updatedAt: string | null;
+  viaTelegram: boolean;
   mentionedEmployeeIds: number[];
   attachments: CommentAttachment[];
 }
