@@ -240,7 +240,13 @@
     "mentioned": "упомянул вас",
     "write": "Написать",
     "preview": "Просмотр",
-    "markdownHint": "Поддерживается Markdown · @ для упоминания",
+    "markdownHint": "Поддерживается Markdown · @ для упоминания · вставьте изображение",
+    "download": "Скачать",
+    "removeAttachment": "Удалить вложение",
+    "previousImage": "Предыдущее изображение",
+    "nextImage": "Следующее изображение",
+    "fileTooLarge": "{{name}}: файл слишком большой (макс. 5 МБ)",
+    "totalTooLarge": "Вложения слишком большие — суммарно не более 5 МБ.",
     "viaTelegram": "через Telegram"
   },
   "tickets": {

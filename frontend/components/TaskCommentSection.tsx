@@ -6,8 +6,17 @@ import { api } from '@/lib/api';
 import { getStoredEmployee } from '@/lib/auth-client';
 import type { MentionMember, TaskComment, CommentRequest } from '@/lib/types';
 import MarkdownRenderer from './MarkdownRenderer';
+import ImageLightbox, { type LightboxImage } from './ImageLightbox';
 import { Avatar } from './ui';
 import '@/lib/i18n';
+
+// Mirror the server's multipart limits (application.yml: max-file-size 5MB, max-request-size 6MB) so an
+// oversized batch is caught here with a clear message instead of failing the whole upload with a 413.
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 5.5 * 1024 * 1024;
+
+/** A not-yet-sent attachment plus its local object-URL thumbnail ('' for non-images). */
+type PendingAttachment = { file: File; preview: string };
 
 interface TaskCommentSectionProps {
   taskId: number;
@@ -32,8 +41,10 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingRef = useRef<PendingAttachment[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
   const newTextareaRef = useRef<HTMLTextAreaElement>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -52,6 +63,26 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'nearest' });
   }, [comments.length]);
+
+  // Object URLs are created/revoked alongside the files themselves (not in a follow-up effect) so a
+  // thumbnail is never one render out of step with its file. This ref only backs the unmount sweep.
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
+  useEffect(() => () => pendingRef.current.forEach((p) => p.preview && URL.revokeObjectURL(p.preview)), []);
+
+  // Every image in the thread, in reading order — the lightbox arrows walk this whole gallery.
+  const threadImages = useMemo<LightboxImage[]>(
+    () => comments.flatMap((comment) =>
+      (comment.attachments ?? [])
+        .filter((attachment) => attachment.mimeType.startsWith('image/'))
+        .map((attachment) => ({
+          id: attachment.id,
+          url: attachment.downloadUrl,
+          fileName: attachment.fileName,
+        }))),
+    [comments],
+  );
 
   const mentionableMembers = useMemo(
     () => members.slice().sort((a, b) => a.fullName.localeCompare(b.fullName)),
@@ -80,14 +111,18 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
+    // A screenshot on its own is a valid comment — only require text when nothing is attached.
+    if (!newComment.trim() && pending.length === 0) return;
 
     setSubmitting(true);
     try {
-      const comment = await api.addComment(taskId, newComment.trim(), selectedFiles);
+      const sent = pending;
+      const comment = await api.addComment(taskId, newComment.trim(), sent.map((p) => p.file));
       setComments([...comments, comment]);
       setNewComment('');
-      setSelectedFiles([]);
+      // Drop only what actually went out — the user may have attached more while the upload was in flight.
+      sent.forEach((p) => p.preview && URL.revokeObjectURL(p.preview));
+      setPending((prev) => prev.filter((p) => !sent.includes(p)));
       setNewCommentTab('write');
       setNewMention(CLOSED_MENTION);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -98,20 +133,66 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const validFiles = files.filter((file) => {
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`${file.name}: File too large (max 5MB)`);
-        return false;
+  const addFiles = (files: File[]) => {
+    // Validation, alerts and object-URL creation stay OUT of the state updater — updaters must be pure
+    // (React re-invokes them, which would double the alerts and leak a duplicate URL per file).
+    let total = pending.reduce((sum, p) => sum + p.file.size, 0);
+    const accepted: PendingAttachment[] = [];
+    for (const file of files) {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        alert(t('comments.fileTooLarge', { name: file.name }));
+        continue;
       }
-      return true;
-    });
-    setSelectedFiles((prev) => [...prev, ...validFiles]);
+      if (total + file.size > MAX_TOTAL_BYTES) {
+        alert(t('comments.totalTooLarge'));
+        break;
+      }
+      total += file.size;
+      accepted.push({
+        file,
+        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+      });
+    }
+    if (accepted.length > 0) {
+      setPending((prev) => [...prev, ...accepted]);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(Array.from(e.target.files || []));
+    // Clear the input so re-picking the SAME file (e.g. after removing it) still fires a change event.
+    e.target.value = '';
+  };
+
+  /**
+   * Ctrl/Cmd+V a screenshot straight into the composer — the clipboard carries it as an image file.
+   * We never preventDefault: rich copies (Excel/Word/Outlook) put BOTH text and a bitmap on the clipboard,
+   * and swallowing the paste would throw the user's text away. When text is present we let the normal paste
+   * happen and ignore the bitmap; a screenshot carries no text, which is exactly the case we attach.
+   */
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (e.clipboardData.getData('text/plain').trim().length > 0) return;
+    const images: File[] = [];
+    for (const item of Array.from(e.clipboardData.items)) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) images.push(file);
+      }
+    }
+    if (images.length === 0) return;
+    const stamp = Date.now();
+    addFiles(images.map((file, i) => {
+      const ext = file.type.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'png';
+      // Clipboard images all arrive named "image.png" — stamp them so repeated pastes stay distinguishable.
+      const suffix = images.length > 1 ? `-${i + 1}` : '';
+      return new File([file], `pasted-${stamp}${suffix}.${ext}`, { type: file.type });
+    }));
   };
 
   const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    const target = pending[index];
+    if (target?.preview) URL.revokeObjectURL(target.preview);
+    setPending((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleEdit = (comment: TaskComment) => {
@@ -305,17 +386,31 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                     <MarkdownRenderer content={comment.content} />
                     {comment.attachments && comment.attachments.length > 0 && (
                       <div className="mt-2 grid grid-cols-2 gap-2">
-                        {comment.attachments.map((attachment) => (
-                          <a
-                            key={attachment.id}
-                            href={attachment.downloadUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`block overflow-hidden rounded-lg border ${mine ? 'border-brand-200 hover:border-brand-300' : 'border-slate-200 hover:border-slate-300'}`}
-                          >
-                            {attachment.mimeType.startsWith('image/') ? (
-                              <img src={attachment.downloadUrl} alt={attachment.fileName} className="h-28 w-full object-cover" />
-                            ) : (
+                        {comment.attachments.map((attachment) => {
+                          const border = mine ? 'border-brand-200 hover:border-brand-300' : 'border-slate-200 hover:border-slate-300';
+                          if (attachment.mimeType.startsWith('image/')) {
+                            // Open in the in-page viewer instead of a new tab — messenger style.
+                            const galleryIndex = threadImages.findIndex((image) => image.id === attachment.id);
+                            return (
+                              <button
+                                key={attachment.id}
+                                type="button"
+                                onClick={() => setLightboxIndex(galleryIndex >= 0 ? galleryIndex : 0)}
+                                title={attachment.fileName}
+                                className={`block cursor-zoom-in overflow-hidden rounded-lg border ${border}`}
+                              >
+                                <img src={attachment.downloadUrl} alt={attachment.fileName} className="h-28 w-full object-cover" />
+                              </button>
+                            );
+                          }
+                          return (
+                            <a
+                              key={attachment.id}
+                              href={attachment.downloadUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`block overflow-hidden rounded-lg border ${border}`}
+                            >
                               <div className="flex items-center gap-2 p-2">
                                 <svg className="h-7 w-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -325,9 +420,9 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                                   <p className="text-[11px] text-slate-500">{(attachment.fileSize / 1024).toFixed(1)} KB</p>
                                 </div>
                               </div>
-                            )}
-                          </a>
-                        ))}
+                            </a>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -389,6 +484,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                   () => handleSubmit(e),
                   setNewMention,
                 )}
+                onPaste={handlePaste}
                 placeholder={t('comments.addPlaceholder')}
                 className="max-h-40 min-h-[64px] w-full resize-y border-0 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-0"
                 rows={2}
@@ -404,14 +500,29 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
             </div>
           )}
 
-          {selectedFiles.length > 0 && (
+          {pending.length > 0 && (
             <div className="flex flex-wrap gap-2 px-3 pb-2">
-              {selectedFiles.map((file, index) => (
-                <span key={index} className="flex items-center gap-1.5 rounded-lg bg-brand-50 px-2 py-1 text-xs text-brand-700">
-                  <span className="max-w-[150px] truncate">{file.name}</span>
-                  <button type="button" onClick={() => removeFile(index)} className="text-brand-400 hover:text-red-600">×</button>
-                </span>
-              ))}
+              {pending.map(({ file, preview }, index) => {
+                return preview ? (
+                  // Thumbnail so a pasted screenshot is visible before it is sent.
+                  <span key={index} className="group/thumb relative">
+                    <img src={preview} alt={file.name} title={file.name} className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      aria-label={t('comments.removeAttachment')}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs leading-none text-white shadow transition-colors hover:bg-red-600"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ) : (
+                  <span key={index} className="flex items-center gap-1.5 rounded-lg bg-brand-50 px-2 py-1 text-xs text-brand-700">
+                    <span className="max-w-[150px] truncate">{file.name}</span>
+                    <button type="button" onClick={() => removeFile(index)} aria-label={t('comments.removeAttachment')} className="text-brand-400 hover:text-red-600">×</button>
+                  </span>
+                );
+              })}
             </div>
           )}
 
@@ -419,7 +530,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
             <span className="text-[11px] text-slate-400">{t('comments.markdownHint')}</span>
             <button
               type="submit"
-              disabled={submitting || !newComment.trim()}
+              disabled={submitting || (!newComment.trim() && pending.length === 0)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -430,6 +541,15 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
           </div>
         </div>
       </form>
+
+      {lightboxIndex !== null && lightboxIndex < threadImages.length && (
+        <ImageLightbox
+          images={threadImages}
+          index={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>
   );
 }

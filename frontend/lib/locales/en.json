@@ -240,7 +240,13 @@
     "mentioned": "mentioned you",
     "write": "Write",
     "preview": "Preview",
-    "markdownHint": "Markdown supported · @ to mention",
+    "markdownHint": "Markdown supported · @ to mention · paste an image",
+    "download": "Download",
+    "removeAttachment": "Remove attachment",
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
+    "fileTooLarge": "{{name}}: file is too large (max 5 MB)",
+    "totalTooLarge": "Those attachments are too large together — keep the total under 5 MB.",
     "viaTelegram": "via Telegram"
   },
   "tickets": {
