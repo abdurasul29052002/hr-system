@@ -26,6 +26,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Anything with a file extension is a static asset from public/ — e.g. Google's
+  // google<token>.html site-verification file, which Google fetches WITHOUT a cookie. App routes never
+  // contain a dot, so this cannot accidentally expose a protected page.
+  if (pathname.includes('.')) {
+    return NextResponse.next();
+  }
+
   // Check authentication
   const token = request.cookies.get('token')?.value;
 
