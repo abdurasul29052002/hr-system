@@ -11,10 +11,9 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   keywords: SITE_KEYWORDS,
-  // Without this the landing page ships no canonical, so every host that serves the app (the *.vercel.app
-  // alias, per-deployment preview URLs, a custom domain) plus every ?utm_… variant is an independent
-  // duplicate and Google picks the representative URL itself. Resolved against metadataBase.
-  alternates: { canonical: '/' },
+  // NOTE: no `alternates` here on purpose. A layout-level canonical is inherited by every route, which
+  // would canonicalise /register (and every other page) to "/" and drop them from the index. The three
+  // landing routes each declare their own canonical + hreflang cluster via landingMetadata().
   applicationName: SITE_NAME,
   authors: [{ name: SITE_NAME }],
   creator: SITE_NAME,

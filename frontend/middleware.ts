@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const publicPaths = ['/', '/login', '/register', '/team-access'];
+// '/', '/ru' and '/uz' are the three localized landing pages.
+const publicPaths = ['/', '/ru', '/uz', '/login', '/register', '/team-access'];
 const publicPathPrefixes = ['/join/'];
 
 /**
