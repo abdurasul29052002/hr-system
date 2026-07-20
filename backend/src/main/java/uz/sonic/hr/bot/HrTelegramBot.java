@@ -195,7 +195,7 @@ public class HrTelegramBot extends TelegramLongPollingBot {
 
         // Check if this is a reply to a task notification
         if (employee != null && replyToMessage != null) {
-            Long taskId = replyMessageMap.get(replyToMessage.getMessageId());
+            Long taskId = replyMessageMap.get(replyKey(chatId, replyToMessage.getMessageId()));
             if (taskId != null) {
                 // User is replying to a task notification - add as comment
                 try {
@@ -902,45 +902,77 @@ public class HrTelegramBot extends TelegramLongPollingBot {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onCommentAdded(CommentEvents.CommentAdded event) {
         if (!enabled) {
             return;
         }
-        // Notify mentioned users via Telegram — include the FULL comment text so they can read (and reply
-        // to) it right from Telegram, GitHub-PR style.
+        // Include the FULL comment text so it can be read (and replied to) right from Telegram, GitHub-PR
+        // style. Two audiences: people explicitly @mentioned, and the task's own people (creator, assignee,
+        // reviewer) who are told about every comment. The service already made the two sets disjoint.
         String taskRef = "#" + event.taskId() + " " + event.taskTitle();
 
-        for (Long mentionedId : event.mentionedIds()) {
-            employeeRepository.findById(mentionedId)
+        sendCommentNotification(event.mentionedIds(), "notif_mentioned", event, taskRef);
+        sendCommentNotification(event.participantIds(), "notif_comment", event, taskRef);
+    }
+
+    /**
+     * Comments can be up to 4000 chars, but Telegram rejects any message over 4096 — and the surrounding
+     * template, author name and task reference all consume budget too. Trim the body so the notification
+     * always fits; a truncated comment is far better than a silently dropped one.
+     */
+    private static final int COMMENT_BODY_MAX = 3000;
+
+    /** DMs each linked recipient the comment, with a force-reply so they can answer straight from Telegram. */
+    private void sendCommentNotification(java.util.Set<Long> recipientIds, String messageKey,
+                                         CommentEvents.CommentAdded event, String taskRef) {
+        String body = event.content();
+        if (body != null && body.length() > COMMENT_BODY_MAX) {
+            body = body.substring(0, COMMENT_BODY_MAX) + "…";
+        }
+        String content = body;
+        for (Long recipientId : recipientIds) {
+            employeeRepository.findById(recipientId)
                     .filter(e -> e.getTelegramChatId() != null)
-                    .ifPresent(mentioned -> {
-                        // Send with reply markup - user can reply directly to this message
+                    .ifPresent(recipient -> {
+                        String text = BotMessages.get(recipient.getLanguage(), messageKey,
+                                event.authorName(), taskRef, content);
+                        if (text.length() > TELEGRAM_MAX) {
+                            text = text.substring(0, TELEGRAM_MAX - 1) + "…";
+                        }
                         SendMessage msg = SendMessage.builder()
-                                .chatId(mentioned.getTelegramChatId().toString())
-                                .text(BotMessages.get(mentioned.getLanguage(), "notif_mentioned",
-                                        event.authorName(), taskRef, event.content()))
+                                .chatId(recipient.getTelegramChatId().toString())
+                                .text(text)
                                 .replyMarkup(org.telegram.telegrambots.meta.api.objects.replykeyboard.ForceReplyKeyboard.builder()
                                         .forceReply(true)
                                         .selective(true)
                                         .inputFieldPlaceholder("Reply to add comment...")
                                         .build())
                                 .build();
-
                         try {
                             org.telegram.telegrambots.meta.api.objects.Message sentMsg = execute(msg);
-                            // Store message mapping: telegram_message_id -> task_id
-                            // We'll use this to handle replies
-                            replyMessageMap.put(sentMsg.getMessageId(), event.taskId());
+                            // (chat, message) -> task, so a reply becomes a comment on the right task
+                            replyMessageMap.put(replyKey(recipient.getTelegramChatId(), sentMsg.getMessageId()),
+                                    event.taskId());
                         } catch (Exception e) {
-                            log.error("Failed to send mention notification", e);
+                            log.error("Failed to send comment notification to chat {}",
+                                    recipient.getTelegramChatId(), e);
                         }
                     });
         }
     }
 
-    // Map to track which Telegram messages are about which tasks
-    private final java.util.Map<Integer, Long> replyMessageMap = new java.util.concurrent.ConcurrentHashMap<>();
+    /**
+     * Which task each outgoing notification was about, so a Telegram reply becomes a comment on the right
+     * one. Keyed by chat AND message id: Telegram message ids are only unique WITHIN a chat (every private
+     * chat counts from ~1), so keying on the message id alone made replies from different users collide and
+     * land on each other's tasks.
+     */
+    private final java.util.Map<String, Long> replyMessageMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static String replyKey(Long chatId, Integer messageId) {
+        return chatId + ":" + messageId;
+    }
 
     private void notifyAssignee(Long assigneeId, String taskRef) {
         employeeRepository.findById(assigneeId)

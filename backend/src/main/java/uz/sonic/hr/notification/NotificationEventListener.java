@@ -194,9 +194,11 @@ public class NotificationEventListener {
         }
     }
 
-    @EventListener
+    // AFTER_COMMIT: a plain @EventListener ran before the insert committed, so this could look up the
+    // comment row, find nothing and silently create no notification at all. No method-level @Transactional
+    // here on purpose — notificationService.createNotification opens its own.
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
-    @Transactional
     public void onCommentAdded(CommentEvents.CommentAdded event) {
         try {
             Task task = taskRepository.findById(event.taskId()).orElse(null);
@@ -214,6 +216,21 @@ public class NotificationEventListener {
                             mentioned,
                             "You were mentioned",
                             event.authorName() + " mentioned you in: " + event.taskTitle(),
+                            task, comment, null, actor
+                    );
+                }
+            }
+
+            // …and for the task's own people (creator, assignee, reviewer), who hear about every comment
+            // even without a mention. Disjoint from mentionedIds, so nobody gets both.
+            for (Long participantId : event.participantIds()) {
+                Employee participant = employeeRepository.findById(participantId).orElse(null);
+                if (participant != null) {
+                    notificationService.createNotification(
+                            NotificationType.COMMENT_ADDED,
+                            participant,
+                            "New comment",
+                            event.authorName() + " commented on: " + event.taskTitle(),
                             task, comment, null, actor
                     );
                 }

@@ -88,19 +88,7 @@ public class TaskCommentService {
             }
         }
 
-        // Publish event for notifications
-        if (!mentionedEmployees.isEmpty()) {
-            Set<Long> mentionedIds = mentionedEmployees.stream()
-                    .map(Employee::getId)
-                    .filter(id -> !id.equals(author.getId())) // Don't notify yourself
-                    .collect(java.util.stream.Collectors.toSet());
-
-            if (!mentionedIds.isEmpty()) {
-                eventPublisher.publishEvent(new CommentEvents.CommentAdded(
-                        comment.getId(), taskId, task.getTitle(), author.getId(),
-                        author.getFullName(), request.content(), mentionedIds));
-            }
-        }
+        publishCommentAdded(comment, task, author, request.content(), mentionedEmployees);
 
         return CommentDto.from(comment, storage);
     }
@@ -259,20 +247,49 @@ public class TaskCommentService {
 
         comment = commentRepository.save(comment);
 
-        // Publish event for web notifications
-        if (!mentionedEmployees.isEmpty()) {
-            Set<Long> mentionedIds = mentionedEmployees.stream()
-                    .map(Employee::getId)
-                    .filter(id -> !id.equals(author.getId()))
-                    .collect(java.util.stream.Collectors.toSet());
-
-            if (!mentionedIds.isEmpty()) {
-                eventPublisher.publishEvent(new CommentEvents.CommentAdded(
-                        comment.getId(), taskId, task.getTitle(), author.getId(),
-                        author.getFullName(), content, mentionedIds));
-            }
-        }
+        publishCommentAdded(comment, task, author, content, mentionedEmployees);
 
         return comment;
+    }
+
+    /**
+     * Announces a new comment to everyone who should hear about it: the people explicitly @mentioned, plus
+     * the task's own people — its creator, assignee and reviewer — who get told about every comment even
+     * without a mention. The two sets are made disjoint here (and the author removed from both) so no one
+     * is notified twice for the same comment, and the listeners can stay dumb.
+     */
+    private void publishCommentAdded(TaskComment comment, Task task, Employee author, String content,
+                                     Set<Employee> mentionedEmployees) {
+        Set<Long> mentionedIds = mentionedEmployees.stream()
+                .map(Employee::getId)
+                .filter(id -> !id.equals(author.getId())) // don't notify yourself
+                .collect(java.util.stream.Collectors.toSet());
+
+        Set<Long> participantIds = new java.util.HashSet<>();
+        addParticipant(participantIds, task.getCreatedBy());
+        addParticipant(participantIds, task.getAssignee());
+        addParticipant(participantIds, task.getReviewer());
+        participantIds.remove(author.getId());
+        participantIds.removeAll(mentionedIds);
+        // Only people who are still in the task's team. Removing someone from a team does NOT clear the
+        // tasks they created or were assigned (createdBy is even NOT NULL, so a creator is permanent), and
+        // unlinking their Telegram is not part of removal either — without this an ex-member would keep
+        // receiving the full text of every comment on those tasks. @mentions are filtered the same way in
+        // resolveMentions(); this keeps the two paths consistent.
+        participantIds.removeIf(id ->
+                membershipRepository.findByEmployeeIdAndTeamId(id, task.getTeam().getId()).isEmpty());
+
+        if (mentionedIds.isEmpty() && participantIds.isEmpty()) {
+            return;
+        }
+        eventPublisher.publishEvent(new CommentEvents.CommentAdded(
+                comment.getId(), task.getId(), task.getTitle(), author.getId(),
+                author.getFullName(), content, mentionedIds, participantIds));
+    }
+
+    private static void addParticipant(Set<Long> ids, Employee employee) {
+        if (employee != null) {
+            ids.add(employee.getId());
+        }
     }
 }
