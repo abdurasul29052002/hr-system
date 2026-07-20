@@ -32,6 +32,14 @@ public class StorageService {
     private static final Set<String> ALLOWED_IMAGE_TYPES =
             Set.of("image/jpeg", "image/png", "image/gif", "image/webp");
 
+    /**
+     * Screen recordings are the main reason the size limit is 100MB — a bug report is far easier to act on
+     * with a clip of it happening. Browsers/OS screen recorders produce mp4 (H.264), webm and, on Apple
+     * devices, quicktime; "video/x-matroska" covers OBS-style .mkv captures.
+     */
+    private static final Set<String> ALLOWED_VIDEO_TYPES =
+            Set.of("video/mp4", "video/webm", "video/quicktime", "video/x-matroska");
+
     private final S3Client s3Client;
     private final S3Properties props;
 
@@ -46,9 +54,10 @@ public class StorageService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot upload empty file");
         }
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
+        if (contentType == null
+                || !(ALLOWED_IMAGE_TYPES.contains(contentType) || ALLOWED_VIDEO_TYPES.contains(contentType))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Only image files are allowed (jpg, png, gif, webp)");
+                    "Only images (jpg, png, gif, webp) and videos (mp4, webm, mov, mkv) are allowed");
         }
 
         String key = folder + "/" + uniqueName(file.getOriginalFilename());

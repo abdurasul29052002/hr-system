@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { getStoredEmployee } from '@/lib/auth-client';
 import type { MentionMember, TaskComment, CommentRequest } from '@/lib/types';
 import MarkdownRenderer from './MarkdownRenderer';
-import ImageLightbox, { type LightboxImage } from './ImageLightbox';
+import ImageLightbox, { type LightboxMedia } from './ImageLightbox';
 import { Avatar } from './ui';
 import '@/lib/i18n';
 
@@ -71,15 +71,16 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   }, [pending]);
   useEffect(() => () => pendingRef.current.forEach((p) => p.preview && URL.revokeObjectURL(p.preview)), []);
 
-  // Every image in the thread, in reading order — the lightbox arrows walk this whole gallery.
-  const threadImages = useMemo<LightboxImage[]>(
+  // Every image and video in the thread, in reading order — the lightbox arrows walk this whole gallery.
+  const threadImages = useMemo<LightboxMedia[]>(
     () => comments.flatMap((comment) =>
       (comment.attachments ?? [])
-        .filter((attachment) => attachment.mimeType.startsWith('image/'))
+        .filter((a) => a.mimeType.startsWith('image/') || a.mimeType.startsWith('video/'))
         .map((attachment) => ({
           id: attachment.id,
           url: attachment.downloadUrl,
           fileName: attachment.fileName,
+          isVideo: attachment.mimeType.startsWith('video/'),
         }))),
     [comments],
   );
@@ -388,18 +389,32 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         {comment.attachments.map((attachment) => {
                           const border = mine ? 'border-brand-200 hover:border-brand-300' : 'border-slate-200 hover:border-slate-300';
-                          if (attachment.mimeType.startsWith('image/')) {
+                          const isImage = attachment.mimeType.startsWith('image/');
+                          const isVideo = attachment.mimeType.startsWith('video/');
+                          if (isImage || isVideo) {
                             // Open in the in-page viewer instead of a new tab — messenger style.
-                            const galleryIndex = threadImages.findIndex((image) => image.id === attachment.id);
+                            const galleryIndex = threadImages.findIndex((media) => media.id === attachment.id);
                             return (
                               <button
                                 key={attachment.id}
                                 type="button"
                                 onClick={() => setLightboxIndex(galleryIndex >= 0 ? galleryIndex : 0)}
                                 title={attachment.fileName}
-                                className={`block cursor-zoom-in overflow-hidden rounded-lg border ${border}`}
+                                className={`relative block cursor-zoom-in overflow-hidden rounded-lg border ${border}`}
                               >
-                                <img src={attachment.downloadUrl} alt={attachment.fileName} className="h-28 w-full object-cover" />
+                                {isVideo ? (
+                                  <>
+                                    {/* preload metadata so the browser paints a first frame as the poster */}
+                                    <video src={attachment.downloadUrl} preload="metadata" muted playsInline className="h-28 w-full bg-slate-900 object-cover" />
+                                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
+                                        <svg className="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+                                      </span>
+                                    </span>
+                                  </>
+                                ) : (
+                                  <img src={attachment.downloadUrl} alt={attachment.fileName} className="h-28 w-full object-cover" />
+                                )}
                               </button>
                             );
                           }
@@ -461,7 +476,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
           <div className="flex items-center gap-1 border-b border-slate-100 px-2 py-1.5">
             <TabToggle tab={newCommentTab} onChange={setNewCommentTab} t={t} />
             <div className="flex-1" />
-            <input ref={fileInputRef} type="file" onChange={handleFileSelect} multiple accept="image/*" className="hidden" id="comment-file-input" />
+            <input ref={fileInputRef} type="file" onChange={handleFileSelect} multiple accept="image/*,video/*" className="hidden" id="comment-file-input" />
             <label htmlFor="comment-file-input" title={t('tasks.attachImages')} className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />

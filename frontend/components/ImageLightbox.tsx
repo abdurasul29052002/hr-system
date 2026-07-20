@@ -4,15 +4,17 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import '@/lib/i18n';
 
-export interface LightboxImage {
+export interface LightboxMedia {
   id: number;
   url: string;
   fileName: string;
+  /** Videos play inline here; screen recordings of a bug are the main reason this exists. */
+  isVideo?: boolean;
 }
 
 /**
- * Full-screen image viewer, messenger style: click a picture to open it here, arrow through the rest of
- * the thread's images, Escape or a backdrop click to leave.
+ * Full-screen media viewer, messenger style: click a picture or video to open it here, arrow through the
+ * rest of the thread's attachments, Escape or a backdrop click to leave.
  *
  * Scroll locking is deliberately NOT handled here: this viewer only ever opens inside the task modal,
  * which already owns that lock. Racing it over the single `document.body.style.overflow` global left the
@@ -25,7 +27,7 @@ export default function ImageLightbox({
   onIndexChange,
   onClose,
 }: {
-  images: LightboxImage[];
+  images: LightboxMedia[];
   index: number;
   onIndexChange: (next: number) => void;
   onClose: () => void;
@@ -128,13 +130,26 @@ export default function ImageLightbox({
       </div>
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={current.url}
-          alt={current.fileName}
-          className="animate-pop max-h-full max-w-full rounded-lg object-contain shadow-2xl"
-          onMouseDown={stop}
-        />
+        {current.isVideo ? (
+          <video
+            // key so switching between clips reloads the element instead of keeping the old source
+            key={current.id}
+            src={current.url}
+            controls
+            autoPlay
+            className="animate-pop max-h-full max-w-full rounded-lg shadow-2xl"
+            onMouseDown={stop}
+            onClick={stop}
+          />
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={current.url}
+            alt={current.fileName}
+            className="animate-pop max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+            onMouseDown={stop}
+          />
+        )}
         {count > 1 && (
           <>
             <NavButton side="left" glyph="‹" label={t('comments.previousImage')} onClick={() => go(-1)} />

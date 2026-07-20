@@ -38,9 +38,9 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Only image files are allowed');
+    // Validate file type — images and screen recordings (the reason for the 100MB limit).
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      alert('Only image and video files are allowed');
       return;
     }
 
@@ -101,7 +101,7 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
           {uploading ? 'Uploading...' : '📎 Upload Image'}
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             onChange={handleFileSelect}
             disabled={uploading}
             className="hidden"
@@ -116,19 +116,29 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {attachments.map((attachment) => (
             <div key={attachment.id} className="relative group border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-              {/* Image */}
-              <a
-                href={attachment.downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block aspect-square bg-gray-100"
-              >
-                <img
+              {/* Preview — a <video> for recordings, which would otherwise render as a broken image */}
+              {attachment.mimeType?.startsWith('video/') ? (
+                <video
                   src={attachment.downloadUrl}
-                  alt={attachment.fileName}
-                  className="w-full h-full object-cover"
+                  controls
+                  preload="metadata"
+                  playsInline
+                  className="block aspect-square w-full bg-black object-contain"
                 />
-              </a>
+              ) : (
+                <a
+                  href={attachment.downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block aspect-square bg-gray-100"
+                >
+                  <img
+                    src={attachment.downloadUrl}
+                    alt={attachment.fileName}
+                    className="w-full h-full object-cover"
+                  />
+                </a>
+              )}
 
               {/* Info Overlay */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white text-xs">
@@ -156,7 +166,7 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
 
       {/* Upload Info */}
       <p className="text-xs text-gray-500">
-        💡 Supported formats: JPG, PNG, GIF, WebP • Max size: 100MB
+        💡 Images (JPG, PNG, GIF, WebP) and video (MP4, WebM, MOV, MKV) • Max size: 100MB
       </p>
     </div>
   );
