@@ -56,8 +56,8 @@ class AuthIT extends AbstractPostgresIT {
     }
 
     @Test
-    void me_withoutToken_isUnauthorizedOrForbidden() throws Exception {
+    void me_withoutToken_isUnauthorized() throws Exception {
         mockMvc.perform(get("/api/auth/me"))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isUnauthorized());
     }
 }

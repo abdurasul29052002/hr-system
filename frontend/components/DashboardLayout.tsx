@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import {
   getStoredEmployee,
   getCurrentMembership,
+  getCurrentTeamId,
   clearAuth,
   setCurrentTeamId,
   storeEmployee,
@@ -62,8 +63,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/team-access');
       return;
     }
+    // Render immediately from the cookie…
     setEmployee(emp);
     setLanguage(emp.language);
+
+    // …then re-sync memberships from the server. The cookie is written at login and lives for 7 days, so
+    // without this a server-side change (removed from a team, team deleted, added to another) left the
+    // client pinned to a dead team: every request kept sending X-Team-Id for a team the user is no longer
+    // in, the backend answered 403, and the board silently rendered empty until the user logged out and
+    // back in. storeEmployee() repoints teamId at a team the user actually belongs to.
+    if (emp.admin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const fresh = await api.me();
+        if (cancelled) return;
+        const before = getCurrentTeamId();
+        storeEmployee(fresh);
+        if (fresh.memberships.length === 0) {
+          router.push('/team-access');
+          return;
+        }
+        // The stale team was dropped — data already on screen was fetched for it, so start over cleanly.
+        if (getCurrentTeamId() !== before) {
+          window.location.reload();
+          return;
+        }
+        setEmployee(fresh);
+        setLanguage(fresh.language);
+      } catch {
+        // Offline or a transient failure: keep using the cached employee. A 401 is already handled in
+        // lib/api.ts (clears auth and redirects to /login).
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (!employee) return null;
