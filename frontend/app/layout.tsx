@@ -37,6 +37,12 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
+  // Proves site ownership to Google Search Console. Public by design (it only identifies the property,
+  // it grants nothing), and it must stay in place — removing it un-verifies the property.
+  // Renders as <meta name="google-site-verification" content="..."/> on every route.
+  verification: {
+    google: "hhrzngCG-2wzqcbIm3JaVij17tlhPM7FYLLFBjF77PA",
+  },
 };
 
 export const viewport: Viewport = {
