@@ -247,7 +247,8 @@
     "nextImage": "Next image",
     "fileTooLarge": "{{name}}: file is too large (max 100 MB)",
     "totalTooLarge": "Those attachments are too large together — keep the total under 200 MB.",
-    "viaTelegram": "via Telegram"
+    "viaTelegram": "via Telegram",
+    "uploadFailed": "Some attachments failed to upload — remove them and try again."
   },
   "tickets": {
     "title": "Support Tickets",

@@ -7,6 +7,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import uz.sonic.hr.common.enums.*;
@@ -24,6 +25,8 @@ import uz.sonic.hr.task.TaskRepository;
 import uz.sonic.hr.team.TeamMembershipRepository;
 import uz.sonic.hr.common.dto.Dtos.CommentDto;
 import uz.sonic.hr.common.dto.Dtos.CommentRequest;
+import uz.sonic.hr.common.dto.Dtos.CreateCommentRequest;
+import uz.sonic.hr.common.dto.Dtos.UploadRef;
 
 import java.time.Instant;
 import java.util.*;
@@ -43,23 +46,74 @@ public class TaskCommentService {
     private final CommentAttachmentRepository attachmentRepository;
     private final StorageService storage;
     private final ApplicationEventPublisher eventPublisher;
+    private final TransactionTemplate transactions;
 
-    @Transactional
-    public CommentDto addComment(Long taskId, CommentRequest request, TeamMembership actor, List<MultipartFile> files) {
-        Task task = getTaskInTeam(taskId, actor);
+    /** Guards against one request forcing an unbounded number of S3 round trips. */
+    private static final int MAX_ATTACHMENTS_PER_COMMENT = 10;
+
+    /**
+     * Creates a comment from text plus already-uploaded attachments. The browser uploads to S3 first and
+     * sends only keys, so this request carries no bytes and stays fast even with a 100MB recording.
+     *
+     * <p>Deliberately NOT {@code @Transactional} as a whole. Claiming an upload means talking to S3 (verify,
+     * copy, delete the staging object), and holding a database connection across that network round trip
+     * is exactly what makes large attachments dangerous — a handful of concurrent 100MB claims would
+     * exhaust the pool and stall unrelated requests. Authorisation and the writes each get their own short
+     * transaction; the S3 work happens between them, holding nothing.
+     */
+    public CommentDto addComment(Long taskId, CreateCommentRequest request, TeamMembership actor) {
         Employee author = actor.getEmployee();
+        String content = request.content() != null ? request.content() : "";
+        List<UploadRef> refs = request.refs();
 
-        // Parse mentions from content
-        Set<String> mentionedUsernames = extractMentions(request.content());
-        Set<Employee> mentionedEmployees = resolveMentions(mentionedUsernames, task.getTeam());
+        if (content.isBlank() && refs.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A comment needs text or an attachment");
+        }
+        if (refs.size() > MAX_ATTACHMENTS_PER_COMMENT) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Too many attachments (max " + MAX_ATTACHMENTS_PER_COMMENT + ")");
+        }
+
+        // 1. Prove the caller may comment on this task before touching any storage.
+        transactions.executeWithoutResult(status -> getTaskInTeam(taskId, actor));
+
+        // 2. Claim each upload OUTSIDE any transaction: check it was signed for this user, then copy it to
+        //    a permanent key it holds no signature for. Duplicate keys are dropped — the same staging
+        //    object cannot be claimed twice, and the second copy would fail once the first deleted it.
+        List<Claimed> claimed = new java.util.ArrayList<>();
+        try {
+            for (UploadRef ref : new java.util.LinkedHashSet<>(refs)) {
+                storage.requireOwnedBy(ref.key(), author.getId());
+                StorageService.FinalizedUpload stored =
+                        storage.finalizeUpload(ref.key(), "comments", displayName(ref));
+                claimed.add(new Claimed(stored, displayName(ref)));
+            }
+        } catch (RuntimeException e) {
+            // Nothing is referencing these yet and they sit outside the orphan sweep's prefix, so clean up.
+            claimed.forEach(c -> storage.delete(c.stored().key()));
+            throw e;
+        }
+
+        // 3. Write, in its own short transaction.
+        try {
+            return transactions.execute(status -> persistComment(taskId, actor, author, content, claimed));
+        } catch (RuntimeException e) {
+            claimed.forEach(c -> storage.delete(c.stored().key()));
+            throw e;
+        }
+    }
+
+    private CommentDto persistComment(Long taskId, TeamMembership actor, Employee author,
+                                      String content, List<Claimed> claimed) {
+        Task task = getTaskInTeam(taskId, actor);
+        Set<Employee> mentionedEmployees = resolveMentions(extractMentions(content), task.getTeam());
 
         TaskComment comment = TaskComment.builder()
                 .task(task)
                 .author(author)
-                .content(request.content())
+                .content(content)
                 .build();
 
-        // Create mention entities
         for (Employee mentioned : mentionedEmployees) {
             CommentMention mention = CommentMention.builder()
                     .comment(comment)
@@ -70,27 +124,33 @@ public class TaskCommentService {
 
         comment = commentRepository.save(comment);
 
-        // Upload attachments to S3
-        if (files != null && !files.isEmpty()) {
-            for (MultipartFile file : files) {
-                if (!file.isEmpty()) {
-                    String key = storage.upload(file, "comments/" + comment.getId());
-                    CommentAttachment attachment = CommentAttachment.builder()
-                            .comment(comment)
-                            .fileName(file.getOriginalFilename())
-                            .filePath(key)
-                            .fileSize(file.getSize())
-                            .mimeType(file.getContentType())
-                            .build();
-                    comment.getAttachments().add(attachment);
-                    attachmentRepository.save(attachment);
-                }
-            }
+        for (Claimed item : claimed) {
+            CommentAttachment attachment = CommentAttachment.builder()
+                    .comment(comment)
+                    .fileName(item.fileName())
+                    .filePath(item.stored().key())
+                    .fileSize(item.stored().size())
+                    .mimeType(item.stored().contentType())
+                    .build();
+            comment.getAttachments().add(attachment);
+            attachmentRepository.save(attachment);
         }
 
-        publishCommentAdded(comment, task, author, request.content(), mentionedEmployees);
-
+        publishCommentAdded(comment, task, author, content, mentionedEmployees);
         return CommentDto.from(comment, storage);
+    }
+
+    private record Claimed(StorageService.FinalizedUpload stored, String fileName) {
+    }
+
+    /** Falls back to the key's last segment when the client sent no name. */
+    private static String displayName(UploadRef ref) {
+        if (ref.fileName() != null && !ref.fileName().isBlank()) {
+            return ref.fileName();
+        }
+        String key = ref.key();
+        int slash = key.lastIndexOf('/');
+        return slash >= 0 && slash < key.length() - 1 ? key.substring(slash + 1) : key;
     }
 
     @Transactional

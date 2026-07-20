@@ -10,6 +10,8 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
 
@@ -51,6 +53,27 @@ public class S3Config {
                 region,
                 StringUtils.hasText(s3Properties.getEndpoint()) ? s3Properties.getEndpoint() : "AWS");
 
+        return builder.build();
+    }
+
+    /**
+     * Signs the short-lived PUT URLs the browser uploads straight to. Must mirror the client's region,
+     * credentials and path-style setting exactly, or the signature the browser presents will not match
+     * what the endpoint expects.
+     */
+    @Bean
+    public S3Presigner s3Presigner() {
+        String region = StringUtils.hasText(s3Properties.getRegion()) ? s3Properties.getRegion() : "us-east-1";
+        S3Presigner.Builder builder = S3Presigner.builder().region(Region.of(region));
+
+        if (StringUtils.hasText(s3Properties.getAccessKey()) && StringUtils.hasText(s3Properties.getSecretKey())) {
+            builder.credentialsProvider(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(s3Properties.getAccessKey(), s3Properties.getSecretKey())));
+        }
+        if (StringUtils.hasText(s3Properties.getEndpoint())) {
+            builder.endpointOverride(URI.create(s3Properties.getEndpoint()))
+                    .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build());
+        }
         return builder.build();
     }
 }

@@ -1,9 +1,10 @@
 package uz.sonic.hr.task;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import uz.sonic.hr.common.dto.Dtos.AttachUploadRequest;
 import uz.sonic.hr.task.TaskAttachment;
 import uz.sonic.hr.team.TeamMembership;
 import uz.sonic.hr.common.security.CurrentUser;
@@ -22,12 +23,13 @@ public class TaskAttachmentController {
     private final TeamService teamService;
     private final CurrentUser currentUser;
 
+    /** Attaches an object the browser already uploaded to S3 — the request carries a key, not bytes. */
     @PostMapping("/tasks/{taskId}/attachments")
-    public AttachmentDto uploadAttachment(@PathVariable Long taskId,
-                                          @RequestParam("file") MultipartFile file,
-                                          @RequestHeader(value = "X-Team-Id", required = false) Long teamId) {
+    public AttachmentDto attachUploaded(@PathVariable Long taskId,
+                                        @Valid @RequestBody AttachUploadRequest request,
+                                        @RequestHeader(value = "X-Team-Id", required = false) Long teamId) {
         TeamMembership actor = teamService.requireMembership(currentUser.get().getId(), teamId);
-        return attachmentService.uploadAttachment(taskId, file, actor);
+        return attachmentService.attachUploaded(taskId, request.key(), request.fileName(), actor);
     }
 
     @GetMapping("/tasks/{taskId}/attachments")

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { api } from '@/lib/api';
+import { api, uploadDirect } from '@/lib/api';
 import { getStoredEmployee } from '@/lib/auth-client';
 import type { MentionMember, TaskComment, CommentRequest } from '@/lib/types';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -15,8 +15,21 @@ import '@/lib/i18n';
 const MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 200 * 1024 * 1024;
 
-/** A not-yet-sent attachment plus its local object-URL thumbnail ('' for non-images). */
-type PendingAttachment = { file: File; preview: string };
+/**
+ * A not-yet-sent attachment. Telegram-style: the upload starts the moment the file is attached, so by the
+ * time you finish typing a 100MB screen recording is usually already in S3 and sending is instant.
+ * `key` is filled in once the upload completes; `progress` drives the ring over the thumbnail.
+ */
+type PendingAttachment = {
+  id: string;
+  file: File;
+  preview: string;
+  progress: number;
+  key?: string;
+  error?: string;
+  /** Lets removing a row cancel its still-running upload instead of leaving it to finish unseen. */
+  abort?: AbortController;
+};
 
 interface TaskCommentSectionProps {
   taskId: number;
@@ -55,6 +68,8 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   const [editMention, setEditMention] = useState<MentionState>(CLOSED_MENTION);
 
   const currentEmployee = getStoredEmployee();
+  /** True while any attachment is still uploading — Send waits for them. */
+  const uploading = pending.some((p) => !p.key && !p.error);
 
   useEffect(() => {
     loadComments();
@@ -115,10 +130,20 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
     // A screenshot on its own is a valid comment — only require text when nothing is attached.
     if (!newComment.trim() && pending.length === 0) return;
 
+    if (pending.some((p) => p.error)) {
+      alert(t('comments.uploadFailed'));
+      return;
+    }
+    // Uploads start when a file is attached, so they are normally done by now. Sending is blocked while
+    // any is still in flight (the Send button is disabled too) — otherwise its key would be missing.
+    if (pending.some((p) => !p.key)) {
+      return;
+    }
+
     setSubmitting(true);
     try {
       const sent = pending;
-      const comment = await api.addComment(taskId, newComment.trim(), sent.map((p) => p.file));
+      const comment = await api.addComment(taskId, newComment.trim(), sent.filter((p) => p.key).map((p) => ({ key: p.key!, fileName: p.file.name })));
       setComments([...comments, comment]);
       setNewComment('');
       // Drop only what actually went out — the user may have attached more while the upload was in flight.
@@ -150,13 +175,30 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
       }
       total += file.size;
       accepted.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         file,
         preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+        progress: 0,
+        abort: new AbortController(),
       });
     }
-    if (accepted.length > 0) {
-      setPending((prev) => [...prev, ...accepted]);
-    }
+    if (accepted.length === 0) return;
+    setPending((prev) => [...prev, ...accepted]);
+    accepted.forEach(startUpload);
+  };
+
+  /** Uploads one attachment to S3 immediately, keeping its row's progress/key/error in step. */
+  const startUpload = (item: PendingAttachment) => {
+    const patch = (changes: Partial<PendingAttachment>) =>
+      setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, ...changes } : p)));
+
+    uploadDirect(item.file, (percent) => patch({ progress: percent }), item.abort?.signal)
+      .then((key) => patch({ key, progress: 100 }))
+      .catch((e) => {
+        // A cancelled upload belongs to a row the user already removed — nothing to report.
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        patch({ error: e instanceof Error ? e.message : 'Upload failed' });
+      });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,6 +234,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
 
   const removeFile = (index: number) => {
     const target = pending[index];
+    target?.abort?.abort();
     if (target?.preview) URL.revokeObjectURL(target.preview);
     setPending((prev) => prev.filter((_, i) => i !== index));
   };
@@ -517,23 +560,35 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
 
           {pending.length > 0 && (
             <div className="flex flex-wrap gap-2 px-3 pb-2">
-              {pending.map(({ file, preview }, index) => {
+              {pending.map((item, index) => {
+                const { id, file, preview, progress, key, error } = item;
+                const done = !!key;
+                const remove = (
+                  <button
+                    type="button"
+                    onClick={() => removeFile(index)}
+                    aria-label={t('comments.removeAttachment')}
+                    className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs leading-none text-white shadow transition-colors hover:bg-red-600"
+                  >
+                    ×
+                  </button>
+                );
+                // Uploading overlay: a dimming layer plus the percentage, cleared once the key arrives.
+                const overlay = !done && (
+                  <span className={`pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg text-[11px] font-semibold text-white ${error ? 'bg-red-600/70' : 'bg-slate-900/55'}`}>
+                    {error ? '!' : `${progress}%`}
+                  </span>
+                );
                 return preview ? (
-                  // Thumbnail so a pasted screenshot is visible before it is sent.
-                  <span key={index} className="group/thumb relative">
-                    <img src={preview} alt={file.name} title={file.name} className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      aria-label={t('comments.removeAttachment')}
-                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs leading-none text-white shadow transition-colors hover:bg-red-600"
-                    >
-                      ×
-                    </button>
+                  <span key={id} className="relative" title={error || file.name}>
+                    <img src={preview} alt={file.name} className={`h-16 w-16 rounded-lg border border-slate-200 object-cover ${done ? '' : 'opacity-70'}`} />
+                    {overlay}
+                    {remove}
                   </span>
                 ) : (
-                  <span key={index} className="flex items-center gap-1.5 rounded-lg bg-brand-50 px-2 py-1 text-xs text-brand-700">
+                  <span key={id} className="relative flex items-center gap-1.5 rounded-lg bg-brand-50 px-2 py-1 text-xs text-brand-700" title={error || file.name}>
                     <span className="max-w-[150px] truncate">{file.name}</span>
+                    {!done && <span className={error ? 'text-red-600' : 'text-brand-500'}>{error ? '!' : `${progress}%`}</span>}
                     <button type="button" onClick={() => removeFile(index)} aria-label={t('comments.removeAttachment')} className="text-brand-400 hover:text-red-600">×</button>
                   </span>
                 );
@@ -545,7 +600,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
             <span className="text-[11px] text-slate-400">{t('comments.markdownHint')}</span>
             <button
               type="submit"
-              disabled={submitting || (!newComment.trim() && pending.length === 0)}
+              disabled={submitting || uploading || (!newComment.trim() && pending.length === 0)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

@@ -56,7 +56,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     let message = `HTTP ${response.status}`;
     try {
       const body = await response.json();
-      if (body.message) message = body.message;
+      // Spring's ProblemDetail uses 'detail'; older handlers use 'message'.
+      if (body.detail) message = body.detail;
+      else if (body.message) message = body.message;
     } catch {
       /* keep default message */
     }
@@ -64,6 +66,52 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   const text = await response.text();
   return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/**
+ * Uploads a file straight to S3 with a short-lived signed URL, reporting progress as it goes, and returns
+ * the object key to hand back when attaching it.
+ *
+ * The bytes never touch our backend or the Vercel proxy — that is what makes 100MB screen recordings
+ * workable: no proxy request-body limit, no 120s proxy timeout, and no database connection held open for
+ * the length of the transfer.
+ *
+ * XMLHttpRequest rather than fetch, because fetch still cannot report upload progress.
+ */
+export async function uploadDirect(
+  file: File,
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  const { key, uploadUrl } = await request<{ key: string; uploadUrl: string }>('/api/uploads/presign', {
+    method: 'POST',
+    body: JSON.stringify({ fileName: file.name, contentType: file.type }),
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl);
+    // A dead connection would otherwise leave the row uploading forever and Send disabled.
+    xhr.timeout = 10 * 60 * 1000;
+    xhr.ontimeout = () => reject(new Error('Upload timed out'));
+    // Both headers are covered by the signature the backend produced — S3 rejects the PUT if either
+    // differs, and the bucket's CORS "allowed headers" must permit them.
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.setRequestHeader('x-amz-acl', 'public-read');
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed (${xhr.status})`));
+    xhr.onerror = () => reject(new Error('Upload failed — check your connection'));
+    xhr.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
+
+    signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(file);
+  });
+
+  return key;
 }
 
 export const api = {
@@ -196,42 +244,12 @@ export const api = {
   adminDeleteTeam: (teamId: number) => request<void>(`/api/admin/teams/${teamId}`, { method: 'DELETE' }),
 
   // Task Comments
-  addComment: async (taskId: number, content: string, files?: File[]): Promise<TaskComment> => {
-    const formData = new FormData();
-    formData.append('content', content);
-
-    if (files && files.length > 0) {
-      files.forEach(file => formData.append('files', file));
-    }
-
-    const headers: Record<string, string> = {};
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    const teamId = getCurrentTeamId();
-    if (teamId != null) {
-      headers['X-Team-Id'] = String(teamId);
-    }
-
-    const response = await fetch(`/api/tasks/${taskId}/comments`, {
+  /** Attachments are uploaded to S3 first (see uploadDirect) and referenced here by key. */
+  addComment: (taskId: number, content: string, attachments: { key: string; fileName: string }[] = []) =>
+    request<TaskComment>(`/api/tasks/${taskId}/comments`, {
       method: 'POST',
-      headers,
-      body: formData,
-    });
-
-    if (response.status === 401) {
-      clearAuth();
-      window.location.href = '/login';
-    }
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Failed to add comment');
-    }
-
-    return response.json();
-  },
+      body: JSON.stringify({ content, attachments }),
+    }),
   listComments: (taskId: number) => request<TaskComment[]>(`/api/tasks/${taskId}/comments`),
   getCommentCount: (taskId: number) => request<number>(`/api/tasks/${taskId}/comments/count`),
   updateComment: (commentId: number, body: CommentRequest) =>
@@ -239,37 +257,20 @@ export const api = {
   deleteComment: (commentId: number) => request<void>(`/api/comments/${commentId}`, { method: 'DELETE' }),
 
   // Task Attachments
-  uploadAttachment: async (taskId: number, file: File): Promise<TaskAttachment> => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const headers: Record<string, string> = {};
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    const teamId = getCurrentTeamId();
-    if (teamId != null) {
-      headers['X-Team-Id'] = String(teamId);
-    }
-
-    const response = await fetch(`/api/tasks/${taskId}/attachments`, {
+  /** Attaches an object already uploaded to S3 by uploadDirect. */
+  attachUploaded: (taskId: number, key: string, fileName: string) =>
+    request<TaskAttachment>(`/api/tasks/${taskId}/attachments`, {
       method: 'POST',
-      headers,
-      body: formData,
-    });
-
-    if (response.status === 401) {
-      clearAuth();
-      window.location.href = '/login';
-    }
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Upload failed');
-    }
-
-    return response.json();
+      body: JSON.stringify({ key, fileName }),
+    }),
+  /** Upload straight to S3, then attach — with optional progress for large files. */
+  uploadAttachment: async (
+    taskId: number,
+    file: File,
+    onProgress?: (percent: number) => void,
+  ): Promise<TaskAttachment> => {
+    const key = await uploadDirect(file, onProgress);
+    return api.attachUploaded(taskId, key, file.name);
   },
   listAttachments: (taskId: number) => request<TaskAttachment[]>(`/api/tasks/${taskId}/attachments`),
   deleteAttachment: (attachmentId: number) => request<void>(`/api/attachments/${attachmentId}`, { method: 'DELETE' }),

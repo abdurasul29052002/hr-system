@@ -16,6 +16,7 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const currentEmployee = getStoredEmployee();
 
@@ -51,8 +52,9 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
     }
 
     setUploading(true);
+    setProgress(0);
     try {
-      const attachment = await api.uploadAttachment(taskId, file);
+      const attachment = await api.uploadAttachment(taskId, file, setProgress);
       setAttachments([attachment, ...attachments]);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to upload file');
@@ -98,7 +100,7 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
 
         {/* Upload Button */}
         <label className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-          {uploading ? 'Uploading...' : '📎 Upload Image'}
+          {uploading ? `Uploading… ${progress}%` : '📎 Upload file'}
           <input
             type="file"
             accept="image/*,video/*"

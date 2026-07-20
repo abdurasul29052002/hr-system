@@ -4,13 +4,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import uz.sonic.hr.team.TeamMembership;
 import uz.sonic.hr.common.security.CurrentUser;
 import uz.sonic.hr.task.TaskCommentService;
 import uz.sonic.hr.team.TeamService;
 import uz.sonic.hr.common.dto.Dtos.CommentDto;
 import uz.sonic.hr.common.dto.Dtos.CommentRequest;
+import uz.sonic.hr.common.dto.Dtos.CreateCommentRequest;
 
 import java.util.List;
 
@@ -23,14 +23,16 @@ public class TaskCommentController {
     private final TeamService teamService;
     private final CurrentUser currentUser;
 
+    /**
+     * Plain JSON — attachments are uploaded straight to S3 beforehand and referenced here by key, so no
+     * file bytes pass through this endpoint.
+     */
     @PostMapping("/tasks/{taskId}/comments")
     public CommentDto addComment(@PathVariable Long taskId,
-                                  @RequestParam("content") String content,
-                                  @RequestParam(value = "files", required = false) List<MultipartFile> files,
+                                  @Valid @RequestBody CreateCommentRequest request,
                                   @RequestHeader(value = "X-Team-Id", required = false) Long teamId) {
         TeamMembership actor = teamService.requireMembership(currentUser.get().getId(), teamId);
-        CommentRequest request = new CommentRequest(content);
-        return commentService.addComment(taskId, request, actor, files);
+        return commentService.addComment(taskId, request, actor);
     }
 
     @GetMapping("/tasks/{taskId}/comments")

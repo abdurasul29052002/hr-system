@@ -247,7 +247,8 @@
     "nextImage": "Keyingi rasm",
     "fileTooLarge": "{{name}}: fayl juda katta (maks. 100 MB)",
     "totalTooLarge": "Biriktirmalar birgalikda juda katta — jami 200 MB dan oshmasin.",
-    "viaTelegram": "Telegram orqali"
+    "viaTelegram": "Telegram orqali",
+    "uploadFailed": "Ba'zi biriktirmalar yuklanmadi — ularni o'chirib, qaytadan urinib ko'ring."
   },
   "tickets": {
     "title": "Murojaatlar",

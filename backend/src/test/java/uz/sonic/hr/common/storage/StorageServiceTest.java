@@ -2,6 +2,7 @@ package uz.sonic.hr.common.storage;
 
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import uz.sonic.hr.common.config.S3Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.mock;
 class StorageServiceTest {
 
     private final S3Client s3 = mock(S3Client.class);
+    private final S3Presigner presigner = mock(S3Presigner.class);
 
     private S3Properties props(boolean enabled, String bucket, String region, String endpoint) {
         S3Properties p = new S3Properties();
@@ -23,7 +25,7 @@ class StorageServiceTest {
 
     @Test
     void publicUrl_awsVirtualHostStyle() {
-        StorageService s = new StorageService(s3, props(true, "my-bucket", "eu-central-1", null));
+        StorageService s = new StorageService(s3, presigner, props(true, "my-bucket", "eu-central-1", null));
 
         assertThat(s.publicUrl("tasks/1/a.png"))
                 .isEqualTo("https://my-bucket.s3.eu-central-1.amazonaws.com/tasks/1/a.png");
@@ -31,7 +33,7 @@ class StorageServiceTest {
 
     @Test
     void publicUrl_customEndpointPathStyle() {
-        StorageService s = new StorageService(s3,
+        StorageService s = new StorageService(s3, presigner,
                 props(true, "my-bucket", "us-east-1", "https://fra1.digitaloceanspaces.com"));
 
         assertThat(s.publicUrl("comments/2/b.png"))
@@ -43,7 +45,7 @@ class StorageServiceTest {
         // DO's per-Space origin includes the bucket (e.g. romchi-files.ams3...). With forcePathStyle the
         // client keeps that host (cert matches) and puts the bucket in the path, so the public URL is
         // simply endpoint/bucket/key — the same location the object was uploaded to. Like the romchi config.
-        StorageService s = new StorageService(s3,
+        StorageService s = new StorageService(s3, presigner,
                 props(true, "my-bucket", "us-east-1", "https://my-bucket.ams3.digitaloceanspaces.com"));
 
         assertThat(s.publicUrl("comments/2/b.png"))
@@ -52,21 +54,21 @@ class StorageServiceTest {
 
     @Test
     void publicUrl_nullWhenDisabled() {
-        StorageService s = new StorageService(s3, props(false, "my-bucket", "us-east-1", null));
+        StorageService s = new StorageService(s3, presigner, props(false, "my-bucket", "us-east-1", null));
 
         assertThat(s.publicUrl("tasks/1/a.png")).isNull();
     }
 
     @Test
     void publicUrl_nullWhenBucketBlank() {
-        StorageService s = new StorageService(s3, props(true, "", "us-east-1", null));
+        StorageService s = new StorageService(s3, presigner, props(true, "", "us-east-1", null));
 
         assertThat(s.publicUrl("tasks/1/a.png")).isNull();
     }
 
     @Test
     void publicUrl_nullForNullKey() {
-        StorageService s = new StorageService(s3, props(true, "my-bucket", "us-east-1", null));
+        StorageService s = new StorageService(s3, presigner, props(true, "my-bucket", "us-east-1", null));
 
         assertThat(s.publicUrl(null)).isNull();
     }

@@ -314,6 +314,39 @@ public final class Dtos {
     public record CommentRequest(@NotBlank String content) {
     }
 
+    /**
+     * Creating a comment. {@code attachmentKeys} are S3 keys the browser already uploaded to directly (see
+     * the presign endpoint), so no file bytes travel through this request. Content is deliberately NOT
+     * {@code @NotBlank}: a screenshot or a screen recording on its own is a perfectly good comment. The
+     * service rejects the case where both are empty.
+     */
+    public record CreateCommentRequest(String content, List<UploadRef> attachments) {
+
+        public List<UploadRef> refs() {
+            return attachments == null ? List.of() : attachments;
+        }
+    }
+
+    /**
+     * One directly-uploaded object being claimed. {@code fileName} is carried alongside the key because
+     * the key holds a generated name — without it the UI would show users {@code a1b2c3.mp4} instead of
+     * the file they picked.
+     */
+    public record UploadRef(@NotBlank String key, String fileName) {
+    }
+
+    /** Asking for a signed URL to upload one file straight to S3. */
+    public record PresignRequest(@NotBlank String fileName, @NotBlank String contentType) {
+    }
+
+    /** Where to PUT the bytes, and the key to hand back afterwards to attach the object. */
+    public record PresignResponse(String key, String uploadUrl) {
+    }
+
+    /** Attaching an already-uploaded object to a task. */
+    public record AttachUploadRequest(@NotBlank String key, String fileName) {
+    }
+
     // Task Attachments
     public record AttachmentDto(Long id, Long taskId, String fileName, Long fileSize,
                                 String mimeType, String uploadedByName, Instant uploadedAt,
