@@ -6,10 +6,10 @@
 // derive from it; if it points at a host that isn't the one being crawled, Google discards the sitemap as
 // cross-host and link previews break.
 //
-// The localhost fallback is intentional: it makes an unset variable obvious in a preview/staging build
-// instead of silently shipping a plausible-looking wrong domain. (It previously fell back to
-// hr-system.vercel.app, which turned out to belong to an unrelated app.)
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+// The fallback is the real production origin, so a build with the env var missing still ships correct
+// absolute URLs. (It once fell back to hr-system.vercel.app, which belongs to an unrelated app, and
+// briefly to localhost, which put "http://localhost:3000" into the live canonical and sitemap.)
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://hr.sonic.uz').replace(/\/+$/, '');
 
 export const SITE_NAME = 'HR System';
 
