@@ -245,8 +245,8 @@
     "removeAttachment": "Biriktirmani o'chirish",
     "previousImage": "Oldingi rasm",
     "nextImage": "Keyingi rasm",
-    "fileTooLarge": "{{name}}: fayl juda katta (maks. 5 MB)",
-    "totalTooLarge": "Biriktirmalar birgalikda juda katta — jami 5 MB dan oshmasin.",
+    "fileTooLarge": "{{name}}: fayl juda katta (maks. 100 MB)",
+    "totalTooLarge": "Biriktirmalar birgalikda juda katta — jami 200 MB dan oshmasin.",
     "viaTelegram": "Telegram orqali"
   },
   "tickets": {

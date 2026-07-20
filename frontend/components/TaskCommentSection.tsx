@@ -10,10 +10,10 @@ import ImageLightbox, { type LightboxImage } from './ImageLightbox';
 import { Avatar } from './ui';
 import '@/lib/i18n';
 
-// Mirror the server's multipart limits (application.yml: max-file-size 5MB, max-request-size 6MB) so an
-// oversized batch is caught here with a clear message instead of failing the whole upload with a 413.
-const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 5.5 * 1024 * 1024;
+// Mirror the server's multipart limits (application.yml: max-file-size 100MB, max-request-size 220MB) so
+// an oversized batch is caught here with a clear message instead of failing the whole upload with a 413.
+const MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 200 * 1024 * 1024;
 
 /** A not-yet-sent attachment plus its local object-URL thumbnail ('' for non-images). */
 type PendingAttachment = { file: File; preview: string };

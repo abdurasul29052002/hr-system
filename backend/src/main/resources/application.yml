@@ -17,11 +17,21 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 5MB
-      max-request-size: 6MB
+      max-file-size: 100MB
+      # Above max-file-size so several attachments can ride along in one comment.
+      max-request-size: 220MB
+      # Spill to disk almost immediately instead of buffering uploads in the heap: the container is capped
+      # at 1g with MaxRAMPercentage=60, so a couple of concurrent 100MB uploads would otherwise OOM it.
+      file-size-threshold: 128KB
 
 server:
   port: 9090
+  tomcat:
+    # When a request is rejected before its body is read (over max-file-size, bad auth), Tomcat drains the
+    # rest so it can still send a proper response. The 2MB default meant anything larger got a connection
+    # reset instead — the browser showed a generic network error rather than the 413. Uncapped now that a
+    # single upload can be 100MB.
+    max-swallow-size: -1
 
 logging:
   level:

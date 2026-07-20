@@ -44,9 +44,9 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
       return;
     }
 
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+    // Validate file size — mirrors spring.servlet.multipart.max-file-size (100MB).
+    if (file.size > 100 * 1024 * 1024) {
+      alert('File size must be less than 100MB');
       return;
     }
 
@@ -156,7 +156,7 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
 
       {/* Upload Info */}
       <p className="text-xs text-gray-500">
-        💡 Supported formats: JPG, PNG, GIF, WebP • Max size: 5MB
+        💡 Supported formats: JPG, PNG, GIF, WebP • Max size: 100MB
       </p>
     </div>
   );

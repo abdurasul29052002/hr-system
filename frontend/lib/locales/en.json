@@ -245,8 +245,8 @@
     "removeAttachment": "Remove attachment",
     "previousImage": "Previous image",
     "nextImage": "Next image",
-    "fileTooLarge": "{{name}}: file is too large (max 5 MB)",
-    "totalTooLarge": "Those attachments are too large together — keep the total under 5 MB.",
+    "fileTooLarge": "{{name}}: file is too large (max 100 MB)",
+    "totalTooLarge": "Those attachments are too large together — keep the total under 200 MB.",
     "viaTelegram": "via Telegram"
   },
   "tickets": {
