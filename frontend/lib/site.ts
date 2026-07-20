@@ -1,7 +1,15 @@
 // Central place for public site identity, shared by metadata, sitemap, robots and the manifest.
-// Set NEXT_PUBLIC_SITE_URL on Vercel to your real domain (e.g. https://hrsystem.uz) so canonical,
-// Open Graph and sitemap URLs are correct. The fallback is only used until that env var is set.
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://hr-system.vercel.app').replace(/\/+$/, '');
+//
+// NEXT_PUBLIC_SITE_URL MUST be set to the real production origin (no trailing slash) in the Vercel
+// Production environment, then redeployed — NEXT_PUBLIC_* is inlined at build time, so changing it in the
+// dashboard does nothing until the next build. Canonical, Open Graph, JSON-LD, robots and sitemap URLs all
+// derive from it; if it points at a host that isn't the one being crawled, Google discards the sitemap as
+// cross-host and link previews break.
+//
+// The localhost fallback is intentional: it makes an unset variable obvious in a preview/staging build
+// instead of silently shipping a plausible-looking wrong domain. (It previously fell back to
+// hr-system.vercel.app, which turned out to belong to an unrelated app.)
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
 export const SITE_NAME = 'HR System';
 

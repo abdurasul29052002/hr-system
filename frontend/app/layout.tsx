@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   keywords: SITE_KEYWORDS,
+  // Without this the landing page ships no canonical, so every host that serves the app (the *.vercel.app
+  // alias, per-deployment preview URLs, a custom domain) plus every ?utm_… variant is an independent
+  // duplicate and Google picks the representative URL itself. Resolved against metadataBase.
+  alternates: { canonical: '/' },
   applicationName: SITE_NAME,
   authors: [{ name: SITE_NAME }],
   creator: SITE_NAME,
