@@ -43,11 +43,19 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Install frontend deps
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Unit-test frontend
+        working-directory: ./frontend
+        # Vitest + Testing Library, jsdom. Component tests stub only `fetch`, so they also pin the
+        # request paths in lib/api.ts.
+        run: npm test
+
       - name: Build frontend
         working-directory: ./frontend
         env:
           # Baked into the build only to satisfy the rewrite; real value is set in Vercel.
           NEXT_PUBLIC_BACKEND_URL: http://localhost:9090
-        run: |
-          npm ci
-          npm run build
+        run: npm run build
