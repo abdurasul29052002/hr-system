@@ -207,7 +207,7 @@ function TaskCard({ task, onOpen, muted }: { task: Task; onOpen: () => void; mut
   return (
     <button
       onClick={onOpen}
-      className={`block w-full rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md ${muted ? 'opacity-60' : ''}`}
+ className={`block w-full rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md ${muted ? 'opacity-60' : ''}`}
     >
       <div className="mb-1 flex items-start justify-between gap-2">
         <h4 className="text-sm font-semibold leading-snug text-slate-900">{task.title}</h4>
@@ -287,7 +287,7 @@ function TaskActions({ task, isManager, myId, members, onAction }: {
       )}
       {task.status === 'OPEN' && isManager && members.length > 0 && (
         <Select
-          className="w-auto"
+ className="w-auto"
           value=""
           onChange={(e) => e.target.value && onAction(task.id, () => api.assignTask(task.id, Number(e.target.value)))}
         >
@@ -353,7 +353,7 @@ function TaskDetailModal({ task, isManager, myId, members, mentionMembers, onClo
               <button
                 key={tb}
                 onClick={() => setTab(tb)}
-                className={`flex-1 rounded-md py-1.5 text-sm font-medium ${tab === tb ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500'}`}
+ className={`flex-1 rounded-md py-1.5 text-sm font-medium ${tab === tb ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500'}`}
               >
                 {t(tb === 'comments' ? 'tasks.comments' : 'tasks.attachments')}
               </button>
@@ -503,7 +503,7 @@ function TaskFormModal({ members, tags, editTask, isManager, onClose, onSaved }:
                     key={tag.id}
                     type="button"
                     onClick={() => toggleTag(tag.id)}
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium text-white transition-opacity ${on ? 'opacity-100 ring-2 ring-offset-1 ring-slate-400' : 'opacity-50'}`}
+ className={`rounded-full px-2.5 py-1 text-xs font-medium text-white transition-opacity ${on ? 'opacity-100 ring-2 ring-offset-1 ring-slate-400' : 'opacity-50'}`}
                     style={{ background: tag.color || '#64748b' }}
                   >
                     {on ? '✓ ' : ''}{tag.name}
@@ -518,7 +518,7 @@ function TaskFormModal({ members, tags, editTask, isManager, onClose, onSaved }:
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 hover:bg-slate-50">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 6h16v12H4z" /></svg>
               {t('tasks.attachImages')}
-              <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => setFiles(Array.from(e.target.files || []))} />
+              <input type="file"  multiple className="hidden" onChange={(e) => setFiles(Array.from(e.target.files || []))} />
             </label>
             {files.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">

@@ -392,7 +392,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                           () => handleSaveEdit(comment.id),
                           setEditMention,
                         )}
-                        className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+ className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                         rows={4}
                         placeholder="**Bold** *italic* `code` [link](url) @username"
                       />
@@ -412,7 +412,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                     <button
                       onClick={() => handleSaveEdit(comment.id)}
                       disabled={!editContent.trim()}
-                      className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+ className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
                     >
                       {t('comments.save')}
                     </button>
@@ -443,7 +443,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                                 type="button"
                                 onClick={() => setLightboxIndex(galleryIndex >= 0 ? galleryIndex : 0)}
                                 title={attachment.fileName}
-                                className={`relative block cursor-zoom-in overflow-hidden rounded-lg border ${border}`}
+ className={`relative block cursor-zoom-in overflow-hidden rounded-lg border ${border}`}
                               >
                                 {isVideo ? (
                                   <>
@@ -467,7 +467,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                               href={attachment.downloadUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`block overflow-hidden rounded-lg border ${border}`}
+ className={`block overflow-hidden rounded-lg border ${border}`}
                             >
                               <div className="flex items-center gap-2 p-2">
                                 <svg className="h-7 w-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -519,7 +519,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
           <div className="flex items-center gap-1 border-b border-slate-100 px-2 py-1.5">
             <TabToggle tab={newCommentTab} onChange={setNewCommentTab} t={t} />
             <div className="flex-1" />
-            <input ref={fileInputRef} type="file" onChange={handleFileSelect} multiple accept="image/*,video/*" className="hidden" id="comment-file-input" />
+            <input ref={fileInputRef} type="file" onChange={handleFileSelect} multiple className="hidden" id="comment-file-input" />
             <label htmlFor="comment-file-input" title={t('tasks.attachImages')} className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -544,7 +544,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                 )}
                 onPaste={handlePaste}
                 placeholder={t('comments.addPlaceholder')}
-                className="max-h-40 min-h-[64px] w-full resize-y border-0 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-0"
+ className="max-h-40 min-h-[64px] w-full resize-y border-0 px-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-0"
                 rows={2}
                 disabled={submitting}
               />
@@ -568,7 +568,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                     type="button"
                     onClick={() => removeFile(index)}
                     aria-label={t('comments.removeAttachment')}
-                    className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs leading-none text-white shadow transition-colors hover:bg-red-600"
+ className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs leading-none text-white shadow transition-colors hover:bg-red-600"
                   >
                     ×
                   </button>
@@ -601,7 +601,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
             <button
               type="submit"
               disabled={submitting || uploading || (!newComment.trim() && pending.length === 0)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+ className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                 <path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.993.993 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z" />
@@ -654,7 +654,7 @@ function MentionDropdown({ members, activeIndex, onPick }: { members: MentionMem
           ref={idx === activeIndex ? activeRef : null}
           type="button"
           onClick={() => onPick(m)}
-          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${idx === activeIndex ? 'bg-brand-50' : 'hover:bg-slate-50'}`}
+ className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${idx === activeIndex ? 'bg-brand-50' : 'hover:bg-slate-50'}`}
         >
           <Avatar name={m.fullName} size={6} />
           <div className="min-w-0">
@@ -683,7 +683,7 @@ function TabToggle({
           key={v}
           type="button"
           onClick={() => onChange(v)}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+ className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
             tab === v ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
           }`}
         >

@@ -39,12 +39,6 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type — images and screen recordings (the reason for the 100MB limit).
-    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-      alert('Only image and video files are allowed');
-      return;
-    }
-
     // Validate file size — mirrors spring.servlet.multipart.max-file-size (100MB).
     if (file.size > 100 * 1024 * 1024) {
       alert('File size must be less than 100MB');
@@ -76,6 +70,11 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
     }
   };
 
+  const extensionOf = (name: string): string => {
+    const dot = name.lastIndexOf('.');
+    return dot >= 0 && dot < name.length - 1 ? name.slice(dot + 1).toUpperCase().slice(0, 5) : 'FILE';
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -103,10 +102,10 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
           {uploading ? `Uploading… ${progress}%` : '📎 Upload file'}
           <input
             type="file"
-            accept="image/*,video/*"
+            
             onChange={handleFileSelect}
             disabled={uploading}
-            className="hidden"
+ className="hidden"
           />
         </label>
       </div>
@@ -118,27 +117,23 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {attachments.map((attachment) => (
             <div key={attachment.id} className="relative group border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-              {/* Preview — a <video> for recordings, which would otherwise render as a broken image */}
+              {/* Preview by kind: video plays, image shows, anything else is a download tile — otherwise a
+                  pdf/zip would render as a broken <img>. */}
               {attachment.mimeType?.startsWith('video/') ? (
-                <video
-                  src={attachment.downloadUrl}
-                  controls
-                  preload="metadata"
-                  playsInline
-                  className="block aspect-square w-full bg-black object-contain"
-                />
+                <video src={attachment.downloadUrl} controls preload="metadata" playsInline
+                  className="block aspect-square w-full bg-black object-contain" />
+              ) : attachment.mimeType?.startsWith('image/') ? (
+                <a href={attachment.downloadUrl} target="_blank" rel="noopener noreferrer"
+                  className="block aspect-square bg-gray-100">
+                  <img src={attachment.downloadUrl} alt={attachment.fileName} className="w-full h-full object-cover" />
+                </a>
               ) : (
-                <a
-                  href={attachment.downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block aspect-square bg-gray-100"
-                >
-                  <img
-                    src={attachment.downloadUrl}
-                    alt={attachment.fileName}
-                    className="w-full h-full object-cover"
-                  />
+                <a href={attachment.downloadUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex aspect-square flex-col items-center justify-center gap-2 bg-gray-50 p-3 text-center hover:bg-gray-100">
+                  <svg className="h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="text-[11px] font-medium text-gray-500">{extensionOf(attachment.fileName)}</span>
                 </a>
               )}
 
@@ -155,7 +150,7 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
               {currentEmployee?.fullName === attachment.uploadedByName && (
                 <button
                   onClick={() => handleDelete(attachment.id)}
-                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+ className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
                   title="Delete"
                 >
                   ×
@@ -168,7 +163,7 @@ export default function TaskAttachmentSection({ taskId }: TaskAttachmentSectionP
 
       {/* Upload Info */}
       <p className="text-xs text-gray-500">
-        💡 Images (JPG, PNG, GIF, WebP) and video (MP4, WebM, MOV, MKV) • Max size: 100MB
+        💡 Any file up to 100MB
       </p>
     </div>
   );

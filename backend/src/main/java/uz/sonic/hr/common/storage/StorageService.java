@@ -86,14 +86,16 @@ public class StorageService {
      */
     public PresignedUpload presignUpload(Long employeeId, String fileName, String contentType) {
         requireEnabled();
-        requireAllowedType(contentType);
+        // Any file type is allowed (zip, pdf, docs, …). Types we do not render inline are forced to
+        // download on claim (see finalizeUpload), so a stray .html/.svg can't execute from the bucket URL.
+        String type = StringUtils.hasText(contentType) ? contentType : "application/octet-stream";
 
         String key = DIRECT_PREFIX + "/" + employeeId + "/" + UUID.randomUUID() + "/" + uniqueName(fileName);
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(props.getBucketName())
                 .key(key)
                 .acl(ObjectCannedACL.PUBLIC_READ)
-                .contentType(contentType)
+                .contentType(type)
                 .build();
         String url = s3Presigner.presignPutObject(PutObjectPresignRequest.builder()
                         .signatureDuration(PRESIGN_TTL)
@@ -121,15 +123,24 @@ public class StorageService {
         requireEnabled();
         StoredObject stored = requireUploaded(sourceKey);
         String finalKey = folder + "/" + UUID.randomUUID() + "/" + uniqueName(originalFileName);
+        CopyObjectRequest.Builder copy = CopyObjectRequest.builder()
+                .sourceBucket(props.getBucketName())
+                .sourceKey(sourceKey)
+                .destinationBucket(props.getBucketName())
+                .destinationKey(finalKey)
+                .acl(ObjectCannedACL.PUBLIC_READ);
+        if (isInlineSafe(stored.contentType())) {
+            copy.metadataDirective(MetadataDirective.COPY);
+        } else {
+            // Anything we don't preview in-app is served as a forced download, so an uploaded HTML or SVG
+            // file can't run its script when opened straight from the public bucket URL. Embedding via
+            // <img>/<video> is unaffected — Content-Disposition only applies to direct navigation.
+            copy.metadataDirective(MetadataDirective.REPLACE)
+                    .contentType(StringUtils.hasText(stored.contentType()) ? stored.contentType() : "application/octet-stream")
+                    .contentDisposition("attachment");
+        }
         try {
-            s3Client.copyObject(CopyObjectRequest.builder()
-                    .sourceBucket(props.getBucketName())
-                    .sourceKey(sourceKey)
-                    .destinationBucket(props.getBucketName())
-                    .destinationKey(finalKey)
-                    .acl(ObjectCannedACL.PUBLIC_READ)
-                    .metadataDirective(MetadataDirective.COPY)
-                    .build());
+            s3Client.copyObject(copy.build());
         } catch (S3Exception e) {
             log.error("S3 copy failed {} -> {}: {}", sourceKey, finalKey, e.awsErrorDetails().errorMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not store the upload", e);
@@ -147,10 +158,8 @@ public class StorageService {
      * Confirms a directly-uploaded object exists, and reports its size and stored content type.
      *
      * <p>The SIZE here is authoritative — S3 measures it, so this is what enforces the 100MB limit on a
-     * direct upload. The CONTENT TYPE is not independently verified: S3 stores verbatim whatever the PUT
-     * declared, and that value is pinned by the signature to what was allow-listed at presign time. So the
-     * type check bounds what the object can *claim* to be (never, say, text/html) but says nothing about
-     * the actual bytes — treat it as a rendering hint, not as proof of file contents.
+     * direct upload. Any file type is accepted; the CONTENT TYPE is stored verbatim from what the PUT
+     * declared and is treated as a rendering hint only, never as proof of the bytes.
      */
     public StoredObject requireUploaded(String key) {
         requireEnabled();
@@ -167,7 +176,6 @@ public class StorageService {
                 throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
                         "File is too large. The limit is 100 MB per file.");
             }
-            requireAllowedType(head.contentType());
             return new StoredObject(size, head.contentType());
         } catch (NoSuchKeyException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Upload not found — it may have expired");
@@ -188,51 +196,17 @@ public class StorageService {
         }
     }
 
-    private void requireAllowedType(String contentType) {
-        if (contentType == null
-                || !(ALLOWED_IMAGE_TYPES.contains(contentType) || ALLOWED_VIDEO_TYPES.contains(contentType))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Only images (jpg, png, gif, webp) and videos (mp4, webm, mov, mkv) are allowed");
-        }
-    }
-
     /**
-     * Upload an image under {@code folder} (e.g. {@code "tasks/12"} or {@code "comments/5"}).
-     *
-     * @return the S3 object key to store on the entity
+     * Whether an object may be served inline. Only the media the app actually renders — raster images,
+     * videos and PDF — are safe to open directly from the public bucket URL; everything else is forced to
+     * download so it can never execute in the browser (an uploaded HTML or SVG would otherwise run script
+     * on the bucket's origin). SVG is deliberately NOT here: it can carry script, so it downloads.
      */
-    public String upload(MultipartFile file, String folder) {
-        requireEnabled();
-        if (file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot upload empty file");
-        }
-        String contentType = file.getContentType();
-        if (contentType == null
-                || !(ALLOWED_IMAGE_TYPES.contains(contentType) || ALLOWED_VIDEO_TYPES.contains(contentType))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Only images (jpg, png, gif, webp) and videos (mp4, webm, mov, mkv) are allowed");
-        }
-
-        String key = folder + "/" + uniqueName(file.getOriginalFilename());
-        try {
-            PutObjectRequest request = PutObjectRequest.builder()
-                    .bucket(props.getBucketName())
-                    .key(key)
-                    // Objects are served via a direct (unsigned) public URL — see publicUrl().
-                    // Mark each upload public-read so DigitalOcean Spaces / S3 serves it (default is private → 403).
-                    .acl(ObjectCannedACL.PUBLIC_READ)
-                    .contentType(contentType)
-                    .contentLength(file.getSize())
-                    .build();
-            s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
-            log.info("Uploaded to S3: bucket={}, key={}", props.getBucketName(), key);
-            return key;
-        } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to read upload", e);
-        } catch (S3Exception e) {
-            log.error("S3 upload failed: {}", e.awsErrorDetails().errorMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "S3 upload failed", e);
-        }
+    private static boolean isInlineSafe(String contentType) {
+        return contentType != null
+                && (ALLOWED_IMAGE_TYPES.contains(contentType)
+                || ALLOWED_VIDEO_TYPES.contains(contentType)
+                || "application/pdf".equals(contentType));
     }
 
     /** Delete an object by key. Best-effort: nulls and S3 errors are swallowed. */

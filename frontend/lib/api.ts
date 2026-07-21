@@ -85,7 +85,7 @@ export async function uploadDirect(
 ): Promise<string> {
   const { key, uploadUrl } = await request<{ key: string; uploadUrl: string }>('/api/uploads/presign', {
     method: 'POST',
-    body: JSON.stringify({ fileName: file.name, contentType: file.type }),
+    body: JSON.stringify({ fileName: file.name, contentType: file.type || 'application/octet-stream' }),
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -96,7 +96,7 @@ export async function uploadDirect(
     xhr.ontimeout = () => reject(new Error('Upload timed out'));
     // Both headers are covered by the signature the backend produced — S3 rejects the PUT if either
     // differs, and the bucket's CORS "allowed headers" must permit them.
-    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
     xhr.setRequestHeader('x-amz-acl', 'public-read');
 
     xhr.upload.onprogress = (e) => {
