@@ -1,5 +1,6 @@
 'use client';
 
+import { Children, Fragment, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
@@ -10,6 +11,31 @@ interface MarkdownRendererProps {
   className?: string;
 }
 
+/**
+ * Highlights @mentions inside already-rendered markdown children.
+ *
+ * It walks the children and only splits STRING nodes on the mention pattern — non-string nodes (links
+ * that remark-gfm auto-linked, bold, inline code, …) pass through untouched. The old code did
+ * `String(children)` first, which turned any such element into the literal text "[object Object]"
+ * whenever the paragraph also contained an '@'.
+ */
+function highlightMentions(children: ReactNode): ReactNode {
+  return Children.map(children, (child, ci) => {
+    if (typeof child !== 'string' || !child.includes('@')) {
+      return child;
+    }
+    return child.split(/(@[a-zA-Z0-9_]+)/g).map((part, i) =>
+      part.startsWith('@') ? (
+        <span key={`${ci}-${i}`} className="rounded bg-blue-50 px-1 font-medium text-blue-600">
+          {part}
+        </span>
+      ) : (
+        <Fragment key={`${ci}-${i}`}>{part}</Fragment>
+      ),
+    );
+  });
+}
+
 export default function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
   return (
     <div className={`prose prose-sm max-w-none ${className}`}>
@@ -17,28 +43,8 @@ export default function MarkdownRenderer({ content, className = '' }: MarkdownRe
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeRaw, rehypeSanitize]}
       components={{
-        // Custom rendering for mentions
-        p: ({ children }) => {
-          const text = String(children);
-          if (text.includes('@')) {
-            const parts = text.split(/(@[a-zA-Z0-9_]+)/g);
-            return (
-              <p>
-                {parts.map((part, i) => {
-                  if (part.startsWith('@')) {
-                    return (
-                      <span key={i} className="text-blue-600 font-medium bg-blue-50 px-1 rounded">
-                        {part}
-                      </span>
-                    );
-                  }
-                  return <span key={i}>{part}</span>;
-                })}
-              </p>
-            );
-          }
-          return <p>{children}</p>;
-        },
+        // Highlight @mentions without clobbering links or other inline elements in the same paragraph.
+        p: ({ children }) => <p>{highlightMentions(children)}</p>,
         // Style code blocks
         code: ({ inline, children, ...props }: any) => {
           if (inline) {
