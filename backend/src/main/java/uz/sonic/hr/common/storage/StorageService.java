@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 import uz.sonic.hr.common.config.S3Properties;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -125,7 +126,7 @@ public class StorageService {
         String finalKey = folder + "/" + UUID.randomUUID() + "/" + uniqueName(originalFileName);
         CopyObjectRequest.Builder copy = CopyObjectRequest.builder()
                 .sourceBucket(props.getBucketName())
-                .sourceKey(sourceKey)
+                .sourceKey(copySourceKey(sourceKey))
                 .destinationBucket(props.getBucketName())
                 .destinationKey(finalKey)
                 .acl(ObjectCannedACL.PUBLIC_READ);
@@ -152,6 +153,28 @@ public class StorageService {
 
     /** A claimed upload, now living at its permanent key. */
     public record FinalizedUpload(String key, long size, String contentType) {
+    }
+
+    /**
+     * The key to name in copyObject's {@code x-amz-copy-source} header.
+     *
+     * <p>DigitalOcean Spaces is configured with the bucket in the endpoint host AND forcePathStyle, so the
+     * SDK's path becomes {@code host(=bucket)/bucket/key} and an object PUT at {@code key} is really stored
+     * under {@code bucket/key}. put/head/get hide this because the SDK prepends the bucket for them — but
+     * the copy-source header is built as {@code /sourceBucket/sourceKey} with no such prefix, so it must
+     * name the real, bucket-prefixed key or the source 404s (verified against live Spaces). When the
+     * endpoint does not embed the bucket (plain AWS, region-only endpoint), the key is correct as-is.
+     */
+    private String copySourceKey(String key) {
+        String endpoint = props.getEndpoint();
+        String bucket = props.getBucketName();
+        if (StringUtils.hasText(endpoint) && StringUtils.hasText(bucket)) {
+            String host = URI.create(endpoint).getHost();
+            if (host != null && host.startsWith(bucket + ".")) {
+                return bucket + "/" + key;
+            }
+        }
+        return key;
     }
 
     /**

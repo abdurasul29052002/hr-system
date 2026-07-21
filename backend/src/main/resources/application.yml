@@ -12,6 +12,11 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  mvc:
+    # RFC 7807 responses: a ResponseStatusException's reason is emitted as the "detail" field, so the web
+    # client shows the real message ("Task not found", "Could not store the upload") instead of "HTTP 500".
+    problemdetails:
+      enabled: true
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
   servlet:
