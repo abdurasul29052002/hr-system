@@ -68,8 +68,6 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   const [editMention, setEditMention] = useState<MentionState>(CLOSED_MENTION);
 
   const currentEmployee = getStoredEmployee();
-  /** True while any attachment is still uploading — Send waits for them. */
-  const uploading = pending.some((p) => !p.key && !p.error);
 
   useEffect(() => {
     loadComments();
@@ -128,32 +126,34 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // A screenshot on its own is a valid comment — only require text when nothing is attached.
-    if (!newComment.trim() && pending.length === 0) return;
-
-    if (pending.some((p) => p.error)) {
-      alert(t('comments.uploadFailed'));
-      return;
-    }
-    // Uploads start when a file is attached, so they are normally done by now. Sending is blocked while
-    // any is still in flight (the Send button is disabled too) — otherwise its key would be missing.
-    if (pending.some((p) => !p.key)) {
-      return;
-    }
+    if (submitting || (!newComment.trim() && pending.length === 0)) return;
 
     setSubmitting(true);
+    const sent = pending;
     try {
-      const sent = pending;
-      const comment = await api.addComment(taskId, newComment.trim(), sent.filter((p) => p.key).map((p) => ({ key: p.key!, fileName: p.file.name })));
-      setComments([...comments, comment]);
+      // Upload attachments NOW, on send (Telegram-style) — each one drives its own progress ring, and the
+      // comment is only posted once every file is in S3. Uploads run in parallel.
+      const uploaded = await Promise.all(
+        sent.map(async (item) => {
+          const patch = (changes: Partial<PendingAttachment>) =>
+            setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, ...changes } : p)));
+          patch({ progress: 0, error: undefined });
+          const key = await uploadDirect(item.file, (percent) => patch({ progress: percent }), item.abort?.signal);
+          patch({ key, progress: 100 });
+          return { key, fileName: item.file.name };
+        }),
+      );
+      const comment = await api.addComment(taskId, newComment.trim(), uploaded);
+      setComments((prev) => [...prev, comment]);
       setNewComment('');
-      // Drop only what actually went out — the user may have attached more while the upload was in flight.
       sent.forEach((p) => p.preview && URL.revokeObjectURL(p.preview));
       setPending((prev) => prev.filter((p) => !sent.includes(p)));
       setNewCommentTab('write');
       setNewMention(CLOSED_MENTION);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to add comment');
+      // An upload or the post itself failed — keep the composer and its attachments so the user can retry.
+      alert(error instanceof Error ? error.message : t('comments.uploadFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -182,23 +182,10 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
         abort: new AbortController(),
       });
     }
+    // Attachments are NOT uploaded here — the upload starts when the user presses Send (see handleSubmit),
+    // Telegram-style, so nothing is transferred until they actually commit to the message.
     if (accepted.length === 0) return;
     setPending((prev) => [...prev, ...accepted]);
-    accepted.forEach(startUpload);
-  };
-
-  /** Uploads one attachment to S3 immediately, keeping its row's progress/key/error in step. */
-  const startUpload = (item: PendingAttachment) => {
-    const patch = (changes: Partial<PendingAttachment>) =>
-      setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, ...changes } : p)));
-
-    uploadDirect(item.file, (percent) => patch({ progress: percent }), item.abort?.signal)
-      .then((key) => patch({ key, progress: 100 }))
-      .catch((e) => {
-        // A cancelled upload belongs to a row the user already removed — nothing to report.
-        if (e instanceof DOMException && e.name === 'AbortError') return;
-        patch({ error: e instanceof Error ? e.message : 'Upload failed' });
-      });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -561,35 +548,38 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
           {pending.length > 0 && (
             <div className="flex flex-wrap gap-2 px-3 pb-2">
               {pending.map((item, index) => {
-                const { id, file, preview, progress, key, error } = item;
-                const done = !!key;
-                const remove = (
+                const { id, file, preview, progress, error } = item;
+                // The ring shows only while sending; before that a file just sits there, removable.
+                const uploadingThis = submitting && !error;
+                const remove = !submitting && (
                   <button
                     type="button"
                     onClick={() => removeFile(index)}
                     aria-label={t('comments.removeAttachment')}
- className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs leading-none text-white shadow transition-colors hover:bg-red-600"
+                    className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs leading-none text-white shadow transition-colors hover:bg-red-600"
                   >
                     ×
                   </button>
                 );
-                // Uploading overlay: a dimming layer plus the percentage, cleared once the key arrives.
-                const overlay = !done && (
-                  <span className={`pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg text-[11px] font-semibold text-white ${error ? 'bg-red-600/70' : 'bg-slate-900/55'}`}>
-                    {error ? '!' : `${progress}%`}
+                const overlay = submitting && (
+                  <span className={`pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg ${error ? 'bg-red-600/70' : 'bg-slate-900/45'}`}>
+                    {error ? <span className="text-sm font-bold text-white">!</span> : <ProgressRing percent={progress} />}
                   </span>
                 );
                 return preview ? (
                   <span key={id} className="relative" title={error || file.name}>
-                    <img src={preview} alt={file.name} className={`h-16 w-16 rounded-lg border border-slate-200 object-cover ${done ? '' : 'opacity-70'}`} />
+                    <img src={preview} alt={file.name} className={`h-16 w-16 rounded-lg border border-slate-200 object-cover ${uploadingThis ? 'opacity-70' : ''}`} />
                     {overlay}
                     {remove}
                   </span>
                 ) : (
                   <span key={id} className="relative flex items-center gap-1.5 rounded-lg bg-brand-50 px-2 py-1 text-xs text-brand-700" title={error || file.name}>
                     <span className="max-w-[150px] truncate">{file.name}</span>
-                    {!done && <span className={error ? 'text-red-600' : 'text-brand-500'}>{error ? '!' : `${progress}%`}</span>}
-                    <button type="button" onClick={() => removeFile(index)} aria-label={t('comments.removeAttachment')} className="text-brand-400 hover:text-red-600">×</button>
+                    {submitting ? (
+                      error ? <span className="font-bold text-red-600">!</span> : <span className="tabular-nums text-brand-500">{progress}%</span>
+                    ) : (
+                      <button type="button" onClick={() => removeFile(index)} aria-label={t('comments.removeAttachment')} className="text-brand-400 hover:text-red-600">×</button>
+                    )}
                   </span>
                 );
               })}
@@ -600,7 +590,7 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
             <span className="text-[11px] text-slate-400">{t('comments.markdownHint')}</span>
             <button
               type="submit"
-              disabled={submitting || uploading || (!newComment.trim() && pending.length === 0)}
+              disabled={submitting || (!newComment.trim() && pending.length === 0)}
  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -621,6 +611,31 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Telegram-style upload indicator: a ring that fills clockwise as the percentage climbs, with a slowly
+ * rotating track for a sense of activity while it works, and the number in the middle.
+ */
+function ProgressRing({ percent }: { percent: number }) {
+  const R = 15;
+  const CIRC = 2 * Math.PI * R;
+  const pct = Math.max(0, Math.min(100, percent));
+  return (
+    <span className="relative flex h-10 w-10 items-center justify-center">
+      <svg viewBox="0 0 36 36" className="absolute inset-0 h-10 w-10 animate-spin [animation-duration:2.2s]">
+        <circle cx="18" cy="18" r={R} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="3" />
+      </svg>
+      <svg viewBox="0 0 36 36" className="absolute inset-0 h-10 w-10 -rotate-90">
+        <circle
+          cx="18" cy="18" r={R} fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"
+          strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - pct / 100)}
+          style={{ transition: 'stroke-dashoffset 0.2s linear' }}
+        />
+      </svg>
+      <span className="relative text-[9px] font-bold tabular-nums text-white">{pct}</span>
+    </span>
   );
 }
 
