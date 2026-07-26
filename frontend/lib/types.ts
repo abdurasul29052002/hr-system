@@ -265,6 +265,7 @@ export type NotificationType =
   | 'TEAM_JOIN_REJECTED'
   | 'INVITE_RECEIVED'
   | 'COMMENT_ADDED'
+  | 'COMMENT_REPLY'
   | 'TICKET_REPLY'
   | 'TICKET_STATUS';
 

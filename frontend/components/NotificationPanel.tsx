@@ -103,6 +103,8 @@ export default function NotificationPanel() {
     switch (type) {
       case 'MENTIONED':
         return '💬';
+      case 'COMMENT_REPLY':
+        return '↩️';
       case 'TASK_ASSIGNED':
         return '📌';
       case 'TASK_APPROVED':
