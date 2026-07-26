@@ -249,6 +249,21 @@ public class NotificationEventListener {
 
             if (task == null || comment == null || actor == null) return;
 
+            // The author of the quoted comment hears "X replied to your comment". Disjoint from the two sets
+            // below (the service stripped this id out), so nobody is notified twice for one comment.
+            if (event.replyToAuthorId() != null) {
+                Employee repliedTo = employeeRepository.findById(event.replyToAuthorId()).orElse(null);
+                if (repliedTo != null) {
+                    notificationService.createNotification(
+                            NotificationType.COMMENT_REPLY,
+                            repliedTo,
+                            "New reply",
+                            event.authorName() + " replied to your comment on: " + event.taskTitle(),
+                            task, comment, null, actor
+                    );
+                }
+            }
+
             // Create notifications for mentioned users
             for (Long mentionedId : event.mentionedIds()) {
                 Employee mentioned = employeeRepository.findById(mentionedId).orElse(null);

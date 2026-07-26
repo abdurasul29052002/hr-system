@@ -274,9 +274,14 @@ public final class Dtos {
     // Task Comments
     public record CommentDto(Long id, Long taskId, Long authorId, String authorName, String content,
                              Instant createdAt, Instant updatedAt, boolean viaTelegram,
-                             List<Long> mentionedEmployeeIds, List<CommentAttachmentDto> attachments) {
+                             List<Long> mentionedEmployeeIds, List<CommentAttachmentDto> attachments,
+                             Long parentCommentId, String parentAuthorName, String parentPreview) {
+
+        /** The quote shown above a reply is a plain, truncated snippet — markdown/newlines flattened. */
+        private static final int PARENT_PREVIEW_MAX = 120;
 
         public static CommentDto from(TaskComment comment, StorageService storage) {
+            TaskComment parent = comment.getParentComment();
             return new CommentDto(
                     comment.getId(),
                     comment.getTask().getId(),
@@ -291,8 +296,19 @@ public final class Dtos {
                             .toList(),
                     comment.getAttachments().stream()
                             .map(a -> CommentAttachmentDto.from(a, storage))
-                            .toList()
+                            .toList(),
+                    parent != null ? parent.getId() : null,
+                    parent != null ? parent.getAuthor().getFullName() : null,
+                    parent != null ? parentPreview(parent) : null
             );
+        }
+
+        private static String parentPreview(TaskComment parent) {
+            String text = parent.getContent() == null ? "" : parent.getContent().replaceAll("\\s+", " ").trim();
+            if (text.isEmpty() && !parent.getAttachments().isEmpty()) {
+                return "📎 " + parent.getAttachments().get(0).getFileName();
+            }
+            return text.length() > PARENT_PREVIEW_MAX ? text.substring(0, PARENT_PREVIEW_MAX) + "…" : text;
         }
     }
 
@@ -320,7 +336,7 @@ public final class Dtos {
      * {@code @NotBlank}: a screenshot or a screen recording on its own is a perfectly good comment. The
      * service rejects the case where both are empty.
      */
-    public record CreateCommentRequest(String content, List<UploadRef> attachments) {
+    public record CreateCommentRequest(String content, List<UploadRef> attachments, Long parentCommentId) {
 
         public List<UploadRef> refs() {
             return attachments == null ? List.of() : attachments;

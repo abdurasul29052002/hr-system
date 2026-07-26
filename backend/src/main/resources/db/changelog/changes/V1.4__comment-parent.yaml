@@ -1,0 +1,26 @@
+databaseChangeLog:
+  # Threaded (Telegram-style, one level deep) comment replies: a comment may point at the comment it
+  # answers. ON DELETE SET NULL so deleting a parent leaves its replies in place — they just lose the quote.
+  - changeSet:
+      id: v1.4-add-comment-parent
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            tableName: task_comments
+            columns:
+              - column:
+                  name: parent_comment_id
+                  type: BIGINT
+  - changeSet:
+      id: v1.4-add-comment-parent-fk
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: parent_comment_id
+            baseTableName: task_comments
+            constraintName: FK_TASK_COMMENTS_ON_PARENT_COMMENT
+            referencedColumnNames: id
+            referencedTableName: task_comments
+            onDelete: SET NULL

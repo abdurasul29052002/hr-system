@@ -245,10 +245,15 @@ export const api = {
 
   // Task Comments
   /** Attachments are uploaded to S3 first (see uploadDirect) and referenced here by key. */
-  addComment: (taskId: number, content: string, attachments: { key: string; fileName: string }[] = []) =>
+  addComment: (
+    taskId: number,
+    content: string,
+    attachments: { key: string; fileName: string }[] = [],
+    parentCommentId: number | null = null,
+  ) =>
     request<TaskComment>(`/api/tasks/${taskId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ content, attachments }),
+      body: JSON.stringify({ content, attachments, parentCommentId }),
     }),
   listComments: (taskId: number) => request<TaskComment[]>(`/api/tasks/${taskId}/comments`),
   getCommentCount: (taskId: number) => request<number>(`/api/tasks/${taskId}/comments/count`),

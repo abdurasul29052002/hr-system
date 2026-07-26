@@ -207,9 +207,12 @@ public class HrTelegramBot extends TelegramLongPollingBot {
         if (employee != null && replyToMessage != null) {
             Long taskId = replyMessageMap.get(replyKey(chatId, replyToMessage.getMessageId()));
             if (taskId != null) {
-                // User is replying to a task notification - add as comment
+                // User is replying to a task notification - add as comment. If that notification was itself
+                // about a specific comment, thread this reply under it (Telegram-style, one level deep).
+                Long parentCommentId = replyCommentMap.get(replyKey(chatId, replyToMessage.getMessageId()));
                 try {
-                    taskCommentService.addCommentFromTelegram(taskId, employee, text, (long) replyToMessage.getMessageId());
+                    taskCommentService.addCommentFromTelegram(taskId, employee, text,
+                            (long) replyToMessage.getMessageId(), parentCommentId);
                     TeamMembership membership = getCurrentMembership(employee);
                     send(chatId, "✅ " + BotMessages.get(lang, "comment_added_to_task", "#" + taskId),
                          membership != null ? menuKeyboard(employee, membership) : null);
@@ -1049,9 +1052,11 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                                 .build();
                         try {
                             org.telegram.telegrambots.meta.api.objects.Message sentMsg = execute(msg);
-                            // (chat, message) -> task, so a reply becomes a comment on the right task
-                            replyMessageMap.put(replyKey(recipient.getTelegramChatId(), sentMsg.getMessageId()),
-                                    event.taskId());
+                            // (chat, message) -> task, so a reply becomes a comment on the right task…
+                            String key = replyKey(recipient.getTelegramChatId(), sentMsg.getMessageId());
+                            replyMessageMap.put(key, event.taskId());
+                            // …and -> the comment this notification is about, so the reply threads under it.
+                            replyCommentMap.put(key, event.commentId());
                         } catch (Exception e) {
                             log.error("Failed to send comment notification to chat {}",
                                     recipient.getTelegramChatId(), e);
@@ -1067,6 +1072,13 @@ public class HrTelegramBot extends TelegramLongPollingBot {
      * land on each other's tasks.
      */
     private final java.util.Map<String, Long> replyMessageMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Which comment each outgoing comment-notification was about, keyed exactly like {@link #replyMessageMap}.
+     * A Telegram reply to that notification threads under this comment. Only comment notifications populate
+     * it, so a reply to any other kind of force-reply prompt simply finds nothing and stays top-level.
+     */
+    private final java.util.Map<String, Long> replyCommentMap = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static String replyKey(Long chatId, Integer messageId) {
         return chatId + ":" + messageId;

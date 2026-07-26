@@ -248,7 +248,12 @@
     "fileTooLarge": "{{name}}: fayl juda katta (maks. 100 MB)",
     "totalTooLarge": "Biriktirmalar birgalikda juda katta — jami 200 MB dan oshmasin.",
     "viaTelegram": "Telegram orqali",
-    "uploadFailed": "Ba'zi biriktirmalar yuklanmadi — ularni o'chirib, qaytadan urinib ko'ring."
+    "uploadFailed": "Ba'zi biriktirmalar yuklanmadi — ularni o'chirib, qaytadan urinib ko'ring.",
+    "reply": "Javob berish",
+    "replyingTo": "{{name}} ga javob",
+    "cancelReply": "Javobni bekor qilish",
+    "jumpToQuoted": "Iqtibos qilingan izohga o'tish",
+    "deletedComment": "O'chirilgan izoh"
   },
   "tickets": {
     "title": "Murojaatlar",

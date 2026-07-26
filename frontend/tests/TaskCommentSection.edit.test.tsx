@@ -38,6 +38,9 @@ const MY_COMMENT: TaskComment = {
   viaTelegram: false,
   mentionedEmployeeIds: [],
   attachments: [],
+  parentCommentId: null,
+  parentAuthorName: null,
+  parentPreview: null,
 };
 
 function response(body: unknown, status = 200): Response {

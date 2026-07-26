@@ -221,6 +221,12 @@ export interface TaskComment {
   viaTelegram: boolean;
   mentionedEmployeeIds: number[];
   attachments: CommentAttachment[];
+  /** The comment this one replies to (Telegram-style, one level deep). Null for a top-level comment. */
+  parentCommentId: number | null;
+  /** Author name of the quoted parent — null when there is no parent (or it was deleted). */
+  parentAuthorName: string | null;
+  /** Short, flattened snippet of the parent's content for the quote block. */
+  parentPreview: string | null;
 }
 
 export interface CommentAttachment {

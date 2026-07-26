@@ -96,7 +96,8 @@ public class TaskCommentService {
 
         // 3. Write, in its own short transaction.
         try {
-            return transactions.execute(status -> persistComment(taskId, actor, author, content, claimed));
+            return transactions.execute(status ->
+                    persistComment(taskId, actor, author, content, claimed, request.parentCommentId()));
         } catch (RuntimeException e) {
             claimed.forEach(c -> storage.delete(c.stored().key()));
             throw e;
@@ -104,14 +105,16 @@ public class TaskCommentService {
     }
 
     private CommentDto persistComment(Long taskId, TeamMembership actor, Employee author,
-                                      String content, List<Claimed> claimed) {
+                                      String content, List<Claimed> claimed, Long parentCommentId) {
         Task task = getTaskInTeam(taskId, actor);
         Set<Employee> mentionedEmployees = resolveMentions(extractMentions(content), task.getTeam());
+        TaskComment parent = resolveParent(parentCommentId, task);
 
         TaskComment comment = TaskComment.builder()
                 .task(task)
                 .author(author)
                 .content(content)
+                .parentComment(parent)
                 .build();
 
         for (Employee mentioned : mentionedEmployees) {
@@ -136,8 +139,24 @@ public class TaskCommentService {
             attachmentRepository.save(attachment);
         }
 
-        publishCommentAdded(comment, task, author, content, mentionedEmployees);
+        publishCommentAdded(comment, task, author, content, mentionedEmployees, parent);
         return CommentDto.from(comment, storage);
+    }
+
+    /**
+     * Resolves the comment a reply points at, rejecting a parent that belongs to a different task — a reply
+     * must live in the same thread it quotes. A null id (top-level comment) resolves to null.
+     */
+    private TaskComment resolveParent(Long parentCommentId, Task task) {
+        if (parentCommentId == null) {
+            return null;
+        }
+        TaskComment parent = commentRepository.findById(parentCommentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parent comment not found"));
+        if (!parent.getTask().getId().equals(task.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parent comment belongs to a different task");
+        }
+        return parent;
     }
 
     private record Claimed(StorageService.FinalizedUpload stored, String fileName) {
@@ -275,6 +294,16 @@ public class TaskCommentService {
      */
     @Transactional
     public TaskComment addCommentFromTelegram(Long taskId, Employee author, String content, Long telegramMessageId) {
+        return addCommentFromTelegram(taskId, author, content, telegramMessageId, null);
+    }
+
+    /**
+     * Add comment from Telegram bot. {@code parentCommentId} threads this reply under the comment the user
+     * replied to on Telegram (resolved by the bot from its outgoing-message map); null keeps it top-level.
+     */
+    @Transactional
+    public TaskComment addCommentFromTelegram(Long taskId, Employee author, String content,
+                                              Long telegramMessageId, Long parentCommentId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
 
@@ -288,12 +317,14 @@ public class TaskCommentService {
         // Parse mentions
         Set<String> mentionedUsernames = extractMentions(content);
         Set<Employee> mentionedEmployees = resolveMentions(mentionedUsernames, task.getTeam());
+        TaskComment parent = resolveParent(parentCommentId, task);
 
         TaskComment comment = TaskComment.builder()
                 .task(task)
                 .author(author)
                 .content(content)
                 .telegramMessageId(telegramMessageId)
+                .parentComment(parent)
                 .build();
 
         // Create mention entities
@@ -307,7 +338,7 @@ public class TaskCommentService {
 
         comment = commentRepository.save(comment);
 
-        publishCommentAdded(comment, task, author, content, mentionedEmployees);
+        publishCommentAdded(comment, task, author, content, mentionedEmployees, parent);
 
         return comment;
     }
@@ -319,11 +350,27 @@ public class TaskCommentService {
      * is notified twice for the same comment, and the listeners can stay dumb.
      */
     private void publishCommentAdded(TaskComment comment, Task task, Employee author, String content,
-                                     Set<Employee> mentionedEmployees) {
+                                     Set<Employee> mentionedEmployees, TaskComment parent) {
         Set<Long> mentionedIds = mentionedEmployees.stream()
                 .map(Employee::getId)
                 .filter(id -> !id.equals(author.getId())) // don't notify yourself
                 .collect(java.util.stream.Collectors.toSet());
+
+        // The author of the quoted comment, told "X replied to your comment". Skip a self-reply, and only
+        // if they are still in the team (same rule as participants below). This takes precedence over the
+        // mention/participant notifications: whoever gets the reply ping is removed from the other two sets
+        // so a single comment never notifies the same person twice.
+        Long replyToAuthorId = null;
+        if (parent != null) {
+            Long parentAuthorId = parent.getAuthor().getId();
+            if (!parentAuthorId.equals(author.getId())
+                    && membershipRepository.findByEmployeeIdAndTeamId(parentAuthorId, task.getTeam().getId()).isPresent()) {
+                replyToAuthorId = parentAuthorId;
+            }
+        }
+        if (replyToAuthorId != null) {
+            mentionedIds.remove(replyToAuthorId);
+        }
 
         Set<Long> participantIds = new java.util.HashSet<>();
         addParticipant(participantIds, task.getCreatedBy());
@@ -331,6 +378,9 @@ public class TaskCommentService {
         addParticipant(participantIds, task.getReviewer());
         participantIds.remove(author.getId());
         participantIds.removeAll(mentionedIds);
+        if (replyToAuthorId != null) {
+            participantIds.remove(replyToAuthorId);
+        }
         // Only people who are still in the task's team. Removing someone from a team does NOT clear the
         // tasks they created or were assigned (createdBy is even NOT NULL, so a creator is permanent), and
         // unlinking their Telegram is not part of removal either — without this an ex-member would keep
@@ -339,12 +389,12 @@ public class TaskCommentService {
         participantIds.removeIf(id ->
                 membershipRepository.findByEmployeeIdAndTeamId(id, task.getTeam().getId()).isEmpty());
 
-        if (mentionedIds.isEmpty() && participantIds.isEmpty()) {
+        if (mentionedIds.isEmpty() && participantIds.isEmpty() && replyToAuthorId == null) {
             return;
         }
         eventPublisher.publishEvent(new CommentEvents.CommentAdded(
                 comment.getId(), task.getId(), task.getTitle(), author.getId(),
-                author.getFullName(), content, mentionedIds, participantIds));
+                author.getFullName(), content, mentionedIds, participantIds, replyToAuthorId));
     }
 
     private static void addParticipant(Set<Long> ids, Employee employee) {

@@ -38,6 +38,13 @@ public class TaskComment {
     @JoinColumn(name = "author_id", nullable = false)
     private Employee author;
 
+    // The comment this one is a reply to (Telegram-style, one level deep). Null for a top-level comment.
+    // The DB self-FK is ON DELETE SET NULL: deleting the parent leaves the reply standing, only losing its
+    // quote — so this is never cascaded from the parent side.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id")
+    private TaskComment parentComment;
+
     @Column(nullable = false, length = 4000)
     private String content;
 

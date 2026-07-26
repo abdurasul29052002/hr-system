@@ -248,7 +248,12 @@
     "fileTooLarge": "{{name}}: file is too large (max 100 MB)",
     "totalTooLarge": "Those attachments are too large together — keep the total under 200 MB.",
     "viaTelegram": "via Telegram",
-    "uploadFailed": "Some attachments failed to upload — remove them and try again."
+    "uploadFailed": "Some attachments failed to upload — remove them and try again.",
+    "reply": "Reply",
+    "replyingTo": "Replying to {{name}}",
+    "cancelReply": "Cancel reply",
+    "jumpToQuoted": "Go to the quoted comment",
+    "deletedComment": "Deleted comment"
   },
   "tickets": {
     "title": "Support Tickets",

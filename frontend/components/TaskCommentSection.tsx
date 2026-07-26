@@ -66,6 +66,10 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
   const [editTab, setEditTab] = useState<'write' | 'preview'>('write');
   const [newMention, setNewMention] = useState<MentionState>(CLOSED_MENTION);
   const [editMention, setEditMention] = useState<MentionState>(CLOSED_MENTION);
+  const [replyTo, setReplyTo] = useState<TaskComment | null>(null);
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+  // Bubbles register their DOM node here so "jump to quoted comment" can scroll to and flash the original.
+  const bubbleRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const currentEmployee = getStoredEmployee();
 
@@ -143,13 +147,14 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
           return { key, fileName: item.file.name };
         }),
       );
-      const comment = await api.addComment(taskId, newComment.trim(), uploaded);
+      const comment = await api.addComment(taskId, newComment.trim(), uploaded, replyTo?.id ?? null);
       setComments((prev) => [...prev, comment]);
       setNewComment('');
       sent.forEach((p) => p.preview && URL.revokeObjectURL(p.preview));
       setPending((prev) => prev.filter((p) => !sent.includes(p)));
       setNewCommentTab('write');
       setNewMention(CLOSED_MENTION);
+      setReplyTo(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
       // An upload or the post itself failed — keep the composer and its attachments so the user can retry.
@@ -262,6 +267,24 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to delete comment');
     }
+  };
+
+  const handleReply = (comment: TaskComment) => {
+    setReplyTo(comment);
+    // The composer is always mounted below the thread; focus it so the user can type immediately.
+    requestAnimationFrame(() => {
+      setNewCommentTab('write');
+      newTextareaRef.current?.focus();
+    });
+  };
+
+  // Scroll to the quoted original and flash it, so a reply's quote works like Telegram's "jump to message".
+  const jumpToComment = (commentId: number) => {
+    const el = bubbleRefs.current.get(commentId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightId(commentId);
+    window.setTimeout(() => setHighlightId((cur) => (cur === commentId ? null : cur)), 1600);
   };
 
   const formatTime = (timestamp: string) => {
@@ -413,7 +436,30 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                 {!mine && <Avatar name={comment.authorName} size={8} />}
                 <div className={`flex min-w-0 max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
                   {!mine && <span className="mb-0.5 px-1 text-xs font-semibold text-slate-600">{comment.authorName}</span>}
-                  <div className={`relative w-fit rounded-2xl px-3.5 py-2 text-sm shadow-sm ${mine ? 'rounded-br-md bg-brand-100 text-slate-800' : 'rounded-bl-md border border-slate-200 bg-white text-slate-800'}`}>
+                  <div
+                    ref={(el) => {
+                      if (el) bubbleRefs.current.set(comment.id, el);
+                      else bubbleRefs.current.delete(comment.id);
+                    }}
+                    className={`relative w-fit rounded-2xl px-3.5 py-2 text-sm shadow-sm transition-shadow ${mine ? 'rounded-br-md bg-brand-100 text-slate-800' : 'rounded-bl-md border border-slate-200 bg-white text-slate-800'} ${highlightId === comment.id ? 'ring-2 ring-brand-400 ring-offset-1' : ''}`}
+                  >
+                    {comment.parentCommentId != null && (
+                      <button
+                        type="button"
+                        onClick={() => jumpToComment(comment.parentCommentId!)}
+                        title={t('comments.jumpToQuoted')}
+                        className={`mb-1.5 flex w-full items-start gap-1.5 rounded-md border-l-2 py-1 pl-2 pr-1 text-left ${mine ? 'border-brand-400 bg-brand-50/70 hover:bg-brand-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[11px] font-semibold text-brand-600">
+                            {comment.parentAuthorName ?? t('comments.deletedComment')}
+                          </span>
+                          <span className="block truncate text-[11px] text-slate-500">
+                            {comment.parentPreview || (comment.parentAuthorName ? '…' : t('comments.deletedComment'))}
+                          </span>
+                        </span>
+                      </button>
+                    )}
                     <MarkdownRenderer content={comment.content} />
                     {comment.attachments && comment.attachments.length > 0 && (
                       <div className="mt-2 grid grid-cols-2 gap-2">
@@ -482,6 +528,13 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
                         {t('comments.viaTelegram')}
                       </span>
                     )}
+                    <button
+                      onClick={() => handleReply(comment)}
+                      title={t('comments.reply')}
+                      className="rounded p-0.5 text-slate-400 opacity-0 transition-opacity hover:bg-slate-100 hover:text-brand-600 group-hover:opacity-100"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2m-15-7l4-4m-4 4l4 4" /></svg>
+                    </button>
                     {mine && (
                       <span className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                         <button onClick={() => handleEdit(comment)} title={t('comments.edit')} className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
@@ -503,6 +556,25 @@ export default function TaskCommentSection({ taskId, members }: TaskCommentSecti
 
       <form onSubmit={handleSubmit}>
         <div className="rounded-xl border border-slate-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/20">
+          {replyTo && (
+            <div className="flex items-start gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+              <svg className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2m-15-7l4-4m-4 4l4 4" /></svg>
+              <div className="min-w-0 flex-1 border-l-2 border-brand-300 pl-2">
+                <p className="truncate text-xs font-semibold text-brand-600">
+                  {t('comments.replyingTo', { name: replyTo.authorName })}
+                </p>
+                <p className="truncate text-xs text-slate-500">{previewOf(replyTo)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyTo(null)}
+                aria-label={t('comments.cancelReply')}
+                className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-1 border-b border-slate-100 px-2 py-1.5">
             <TabToggle tab={newCommentTab} onChange={setNewCommentTab} t={t} />
             <div className="flex-1" />
@@ -637,6 +709,14 @@ function ProgressRing({ percent }: { percent: number }) {
       <span className="relative text-[9px] font-bold tabular-nums text-white">{pct}</span>
     </span>
   );
+}
+
+/** A short one-line snippet of a comment for the "replying to" chip — falls back to its first attachment. */
+function previewOf(comment: TaskComment): string {
+  const text = comment.content?.replace(/\s+/g, ' ').trim() ?? '';
+  if (text) return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+  const first = comment.attachments?.[0];
+  return first ? `📎 ${first.fileName}` : '…';
 }
 
 function filterMentionable(members: MentionMember[], query: string) {
