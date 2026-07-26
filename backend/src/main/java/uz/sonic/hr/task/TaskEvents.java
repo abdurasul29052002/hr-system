@@ -37,7 +37,22 @@ public final class TaskEvents {
     public record TaskCompleted(Long taskId, Long teamId, String title, String workerName, Long actorId) {
     }
 
-    /** A member self-reported what they are working on; leaders must confirm it becomes a real task. */
-    public record TaskProposed(Long taskId, Long teamId, String title, String proposerName, Long proposerId) {
+    /**
+     * A member self-reported what they are working on; leaders must confirm it becomes a real task.
+     * Carries the proposal's details so the Telegram card can be rendered without re-querying (and
+     * without a LazyInitializationException in the async listener), mirroring {@link TaskCreated}.
+     */
+    public record TaskProposed(Long taskId, Long teamId, String title, String description, TaskPriority priority,
+                               LocalDate deadline, String proposerName, Long proposerId) {
+    }
+
+    /** A leader/manager confirmed a member's proposal (PENDING → IN_PROGRESS). Notifies the proposer. */
+    public record ProposalApproved(Long taskId, Long teamId, String title, Long proposerId, String approverName,
+                                   Long actorId) {
+    }
+
+    /** A leader/manager declined a member's proposal (the PENDING task is deleted). Notifies the proposer. */
+    public record ProposalRejected(Long taskId, Long teamId, String title, Long proposerId, String actorName,
+                                   Long actorId) {
     }
 }

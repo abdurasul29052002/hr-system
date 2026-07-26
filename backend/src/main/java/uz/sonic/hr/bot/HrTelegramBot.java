@@ -86,6 +86,16 @@ public class HrTelegramBot extends TelegramLongPollingBot {
     @Value("${app.bot.admin-chat-id:}")
     private String adminChatId;
 
+    /**
+     * Web app base URL for "open in app" deep links (e.g. the proposal "Details" button). Blank → fall
+     * back to the first configured CORS origin; blank there too → the Details link is simply omitted.
+     */
+    @Value("${app.bot.web-base-url:}")
+    private String webBaseUrl;
+
+    @Value("${app.cors.allowed-origins:}")
+    private String corsAllowedOrigins;
+
     public HrTelegramBot(@Value("${app.bot.token}") String token,
                          @Value("${app.bot.username}") String botUsername,
                          EmployeeRepository employeeRepository,
@@ -393,6 +403,11 @@ public class HrTelegramBot extends TelegramLongPollingBot {
                 // so it must not go through resolveMembership/team-chooser.
                 handleJoinDecision(cq, chatId, lang, employee,
                         Long.parseLong(data.substring(4)), data.startsWith("jra:"));
+            } else if ((data.startsWith("tpa:") || data.startsWith("tpr:")) && employee != null) {
+                // Task-proposal decision authorizes against the proposal's OWN team (not the bot's
+                // selected team), so — like join requests — it bypasses resolveMembership/team-chooser.
+                handleProposalDecision(cq, chatId, lang, employee,
+                        Long.parseLong(data.substring(4)), data.startsWith("tpa:"));
             } else if (employee != null) {
                 TeamMembership membership = resolveMembership(chatId, employee, lang);
                 if (membership == null) {
@@ -476,6 +491,34 @@ public class HrTelegramBot extends TelegramLongPollingBot {
         } catch (Exception e) {
             log.error("Join-request decision failed", e);
             editDecision(chatId, messageId, original, BotMessages.get(lang, "join_req_gone"));
+        }
+    }
+
+    /**
+     * Handle a leader/manager tapping ✅ Approve or ❌ Reject on a Telegram task-proposal card. Authorization
+     * runs inside the service against the proposal's <em>own</em> team (not the bot's selected one). The card
+     * is edited in place to show the outcome and drop the buttons; the proposer is notified through the normal
+     * event fan-out (web bell + Telegram DM).
+     */
+    private void handleProposalDecision(CallbackQuery cq, Long chatId, Language lang, Employee actor,
+                                        long taskId, boolean approve) {
+        Integer messageId = cq.getMessage() != null ? cq.getMessage().getMessageId() : null;
+        String original = cq.getMessage() instanceof org.telegram.telegrambots.meta.api.objects.Message m
+                ? m.getText() : null;
+        try {
+            String proposerName = approve
+                    ? taskService.approveProposalByEmployee(taskId, actor).createdByName()
+                    : taskService.rejectProposalByEmployee(taskId, actor);
+            String outcome = BotMessages.get(lang,
+                    approve ? "proposal_approved_done" : "proposal_rejected_done", proposerName);
+            editDecision(chatId, messageId, original, outcome);
+        } catch (ResponseStatusException e) {
+            String key = e.getStatusCode().value() == HttpStatus.FORBIDDEN.value()
+                    ? "proposal_forbidden" : "proposal_gone";
+            editDecision(chatId, messageId, original, BotMessages.get(lang, key));
+        } catch (Exception e) {
+            log.error("Proposal decision failed", e);
+            editDecision(chatId, messageId, original, BotMessages.get(lang, "proposal_gone"));
         }
     }
 
@@ -790,10 +833,65 @@ public class HrTelegramBot extends TelegramLongPollingBot {
     @Async
     @EventListener
     public void onTaskProposed(TaskEvents.TaskProposed event) {
-        // A member reported/proposed work that leaders & managers must confirm. Mirrors the web
-        // TASK_PROPOSED notification so the bot stays at parity with the site (the proposer is skipped).
-        notifyManagement(event.teamId(), event.proposerId(), "notif_proposed", event.proposerName(),
-                "#" + event.taskId() + " " + event.title());
+        if (!enabled) {
+            return;
+        }
+        // A member reported/proposed work that leaders & managers must confirm. Each linked LEADER/MANAGER
+        // (except the proposer) gets a rich card with one-tap Approve / Reject buttons plus a Details link,
+        // so they can decide straight from Telegram — mirrors the join-request flow.
+        for (TeamMembership membership : membershipRepository.findLinkedByTeamIdAndRoleIn(
+                event.teamId(), List.of(Role.LEADER, Role.MANAGER))) {
+            Employee manager = membership.getEmployee();
+            if (manager.getId().equals(event.proposerId())) {
+                continue;
+            }
+            Language lang = manager.getLanguage();
+            List<InlineKeyboardButton> actions = new ArrayList<>(List.of(
+                    inlineBtn(BotMessages.get(lang, "btn_approve"), "tpa:" + event.taskId()),
+                    inlineBtn(BotMessages.get(lang, "btn_join_reject"), "tpr:" + event.taskId())));
+            String url = taskWebUrl(event.taskId());
+            if (url != null) {
+                actions.add(InlineKeyboardButton.builder()
+                        .text(BotMessages.get(lang, "btn_details")).url(url).build());
+            }
+            executeSafe(SendMessage.builder()
+                    .chatId(manager.getTelegramChatId().toString())
+                    .text(proposalCard(lang, event))
+                    .replyMarkup(InlineKeyboardMarkup.builder().keyboard(List.of(actions)).build())
+                    .build());
+        }
+    }
+
+    /** The member's proposal was confirmed by a leader → DM the proposer (if linked). */
+    @Async
+    @EventListener
+    public void onProposalApproved(TaskEvents.ProposalApproved event) {
+        if (!enabled) {
+            return;
+        }
+        String ref = "#" + event.taskId() + " " + event.title();
+        employeeRepository.findById(event.proposerId())
+                .filter(e -> e.getTelegramChatId() != null)
+                .filter(e -> !e.getId().equals(event.actorId())) // don't ping someone about their own action
+                .ifPresent(proposer -> send(proposer.getTelegramChatId(),
+                        BotMessages.get(proposer.getLanguage(), "notif_proposal_confirmed",
+                                event.approverName(), ref), null));
+    }
+
+    /** The member's proposal was declined by a leader → DM the proposer (if linked). The task is gone. */
+    @Async
+    @EventListener
+    public void onProposalRejected(TaskEvents.ProposalRejected event) {
+        if (!enabled) {
+            return;
+        }
+        String ref = "#" + event.taskId() + " " + event.title();
+        employeeRepository.findById(event.proposerId())
+                .filter(e -> e.getTelegramChatId() != null)
+                .filter(e -> !e.getId().equals(event.actorId()))
+                .ifPresent(proposer -> send(proposer.getTelegramChatId(),
+                        BotMessages.get(proposer.getLanguage(), "notif_proposal_declined",
+                                event.actorName(), ref), null));
     }
 
     // ---------------------------------------------------------------- support tickets
@@ -1074,6 +1172,42 @@ public class HrTelegramBot extends TelegramLongPollingBot {
 
     private static InlineKeyboardButton inlineBtn(String text, String data) {
         return InlineKeyboardButton.builder().text(text).callbackData(data).build();
+    }
+
+    /** Renders the proposal card: title/priority, description, deadline and who proposed it. */
+    private String proposalCard(Language lang, TaskEvents.TaskProposed event) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(BotMessages.get(lang, "proposal_new")).append("\n\n")
+                .append(BotMessages.priority(lang, event.priority())).append(" #")
+                .append(event.taskId()).append(" ").append(event.title());
+        if (event.description() != null && !event.description().isBlank()) {
+            sb.append("\n\n").append(event.description());
+        }
+        if (event.deadline() != null) {
+            sb.append("\n📅 ").append(BotMessages.get(lang, "deadline")).append(": ")
+                    .append(event.deadline().format(DateTimeFormatter.ISO_LOCAL_DATE));
+        }
+        sb.append("\n👤 ").append(BotMessages.get(lang, "proposed_by")).append(": ")
+                .append(event.proposerName());
+        String text = sb.toString();
+        return text.length() > TELEGRAM_MAX ? text.substring(0, TELEGRAM_MAX - 1) + "…" : text;
+    }
+
+    /** Web deep link to a task's detail view, or null when no base URL is configured (button then omitted). */
+    private String taskWebUrl(Long taskId) {
+        String base = webBaseUrl != null && !webBaseUrl.isBlank() ? webBaseUrl : firstCorsOrigin();
+        if (base == null || base.isBlank()) {
+            return null;
+        }
+        return base.replaceAll("/+$", "") + "/tasks?task=" + taskId;
+    }
+
+    private String firstCorsOrigin() {
+        if (corsAllowedOrigins == null || corsAllowedOrigins.isBlank()) {
+            return null;
+        }
+        String first = corsAllowedOrigins.split(",")[0].trim();
+        return first.isEmpty() ? null : first;
     }
 
     private static LocalDate parseDate(String text) {

@@ -132,6 +132,48 @@ public class NotificationEventListener {
         }
     }
 
+    @EventListener
+    @Async
+    @Transactional
+    public void onProposalApproved(TaskEvents.ProposalApproved event) {
+        try {
+            Employee proposer = employeeRepository.findById(event.proposerId()).orElse(null);
+            Employee actor = employeeRepository.findById(event.actorId()).orElse(null);
+            Task task = taskRepository.findById(event.taskId()).orElse(null);
+            if (proposer == null || actor == null || proposer.getId().equals(actor.getId())) return;
+            notificationService.createNotification(
+                    NotificationType.TASK_PROPOSAL_APPROVED,
+                    proposer,
+                    "Task confirmed",
+                    event.approverName() + " confirmed your task: " + event.title(),
+                    task, null, null, actor
+            );
+        } catch (Exception e) {
+            log.error("Failed to create notification for ProposalApproved", e);
+        }
+    }
+
+    @EventListener
+    @Async
+    @Transactional
+    public void onProposalRejected(TaskEvents.ProposalRejected event) {
+        try {
+            // The proposal (task) was deleted, so it is intentionally NOT referenced on the notification.
+            Employee proposer = employeeRepository.findById(event.proposerId()).orElse(null);
+            Employee actor = employeeRepository.findById(event.actorId()).orElse(null);
+            if (proposer == null || actor == null || proposer.getId().equals(actor.getId())) return;
+            notificationService.createNotification(
+                    NotificationType.TASK_PROPOSAL_REJECTED,
+                    proposer,
+                    "Task declined",
+                    event.actorName() + " declined your task: " + event.title(),
+                    null, null, null, actor
+            );
+        } catch (Exception e) {
+            log.error("Failed to create notification for ProposalRejected", e);
+        }
+    }
+
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
     public void onTeamJoinRequested(JoinRequestEvents.TeamJoinRequested event) {

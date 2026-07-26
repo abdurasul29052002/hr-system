@@ -1,6 +1,8 @@
 package uz.sonic.hr.task;
 import uz.sonic.hr.team.TeamService;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
@@ -33,6 +35,9 @@ public class TaskService {
     private final TagRepository tagRepository;
     private final TeamMembershipRepository membershipRepository;
     private final ApplicationEventPublisher eventPublisher;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * Leader/manager creates a task. It may be assigned to a member and given a reviewer up front, but
@@ -326,7 +331,8 @@ public class TaskService {
         task.setStatus(TaskStatus.PENDING);
         task = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskEvents.TaskProposed(
-                task.getId(), team.getId(), task.getTitle(), me.getFullName(), me.getId()));
+                task.getId(), team.getId(), task.getTitle(), task.getDescription(), task.getPriority(),
+                task.getDeadline(), me.getFullName(), me.getId()));
         return TaskDto.from(task);
     }
 
@@ -334,10 +340,7 @@ public class TaskService {
     @Transactional
     public TaskDto approveProposal(Long id, TeamMembership actor) {
         TeamService.requireManager(actor);
-        Task task = getInTeam(id, actor);
-        if (task.getStatus() != TaskStatus.PENDING) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is not a pending proposal");
-        }
+        Task task = lockPendingProposal(id, actor.getTeam().getId());
         // Promote to the status implied by the recorded lifecycle times; a plain proposal just starts now.
         if (task.getCompletedAt() != null) {
             task.setStatus(TaskStatus.DONE);
@@ -349,18 +352,90 @@ public class TaskService {
             task.setStatus(TaskStatus.IN_PROGRESS);
             task.setTakenAt(Instant.now());
         }
-        return TaskDto.from(taskRepository.save(task));
+        task = taskRepository.save(task);
+        eventPublisher.publishEvent(new TaskEvents.ProposalApproved(
+                task.getId(), task.getTeam().getId(), task.getTitle(), task.getCreatedBy().getId(),
+                actor.getEmployee().getFullName(), actor.getEmployee().getId()));
+        return TaskDto.from(task);
     }
 
     /** Leader/manager declines a proposal: it is deleted. */
     @Transactional
     public void rejectProposal(Long id, TeamMembership actor) {
         TeamService.requireManager(actor);
-        Task task = getInTeam(id, actor);
+        rejectProposalLocked(id, actor);
+    }
+
+    /**
+     * Confirm a proposal when the actor is identified only by their {@link Employee} (a Telegram callback
+     * has no X-Team-Id header). The membership is resolved in the TASK's own team, so authorization runs
+     * against the correct team — never the actor's bot-selected one. Mirrors
+     * {@link uz.sonic.hr.team.TeamJoinRequestService#approveByEmployee}.
+     */
+    @Transactional
+    public TaskDto approveProposalByEmployee(Long id, Employee actor) {
+        return approveProposal(id, membershipForProposal(id, actor));
+    }
+
+    /**
+     * Decline a proposal identified by the actor's {@link Employee}. Returns the proposer's name so the
+     * Telegram card can show "you declined X's task" — the task itself is deleted, so the name cannot be
+     * read afterwards. See {@link #approveProposalByEmployee}.
+     */
+    @Transactional
+    public String rejectProposalByEmployee(Long id, Employee actor) {
+        TeamMembership actorMembership = membershipForProposal(id, actor);
+        TeamService.requireManager(actorMembership);
+        return rejectProposalLocked(id, actorMembership);
+    }
+
+    /** Locks + validates the PENDING proposal, deletes it, fires {@code ProposalRejected}, returns proposer name. */
+    private String rejectProposalLocked(Long id, TeamMembership actor) {
+        Task task = lockPendingProposal(id, actor.getTeam().getId());
+        // Capture identity before deletion so the proposer can still be named and notified.
+        Long taskId = task.getId();
+        Long teamId = task.getTeam().getId();
+        String title = task.getTitle();
+        Employee proposer = task.getCreatedBy();
+        Long proposerId = proposer.getId();
+        String proposerName = proposer.getFullName();
+        taskRepository.delete(task);
+        eventPublisher.publishEvent(new TaskEvents.ProposalRejected(
+                taskId, teamId, title, proposerId,
+                actor.getEmployee().getFullName(), actor.getEmployee().getId()));
+        return proposerName;
+    }
+
+    /** Resolves the actor's membership in the proposal's own team (for header-less Telegram callbacks). */
+    private TeamMembership membershipForProposal(Long id, Employee actor) {
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+        return membershipRepository.findByEmployeeIdAndTeamId(actor.getId(), task.getTeam().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "You are not a member of this team"));
+    }
+
+    /**
+     * Locks the task row and returns it once confirmed to be a PENDING proposal in the given team. The
+     * lock serializes concurrent web/Telegram deciders; the second one blocks, then finds it no longer
+     * PENDING (or already deleted) and is rejected.
+     */
+    private Task lockPendingProposal(Long id, Long teamId) {
+        // SELECT ... FOR UPDATE serializes concurrent deciders on this row. A racing decider blocks here
+        // until the first commits (or deletes it, in which case the locking query finds nothing → 404).
+        Task task = taskRepository.lockById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+        // The row may already be in this session (an unlocked pre-read resolved the team), so its cached
+        // state could be stale; refresh under the lock so the PENDING check sees the committed status and a
+        // second decider can't slip past.
+        entityManager.refresh(task);
+        if (!task.getTeam().getId().equals(teamId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found");
+        }
         if (task.getStatus() != TaskStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Task is not a pending proposal");
         }
-        taskRepository.delete(task);
+        return task;
     }
 
     @Transactional(readOnly = true)

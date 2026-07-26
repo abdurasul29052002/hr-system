@@ -1,6 +1,8 @@
 package uz.sonic.hr.task;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.sonic.hr.task.Task;
@@ -9,8 +11,19 @@ import uz.sonic.hr.common.enums.TaskStatus;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
+
+    /**
+     * Acquires a row-level write lock on the task so two concurrent proposal decisions (e.g. one from
+     * Telegram, one from the web) are serialized: the second blocks here until the first commits, then
+     * re-reads the now non-PENDING status and is rejected. Root row only — no join fetch — to avoid
+     * locking the referenced team/employee rows.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Task t where t.id = :id")
+    Optional<Task> lockById(@Param("id") Long id);
 
     List<Task> findAllByTeamIdAndStatusOrderByPriorityDescCreatedAtDesc(Long teamId, TaskStatus status);
 

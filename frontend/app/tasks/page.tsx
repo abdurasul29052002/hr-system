@@ -36,6 +36,16 @@ export default function TasksPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
+  // A `?task=<id>` query (e.g. the Telegram proposal "Details" link) opens that task's detail modal once.
+  // Read at mount via a state initializer (not an effect) so the client page needs no Suspense boundary
+  // and there's no setState-in-effect; the modal is derived during render and dismissed on first close.
+  const [deepLinkId] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const raw = new URLSearchParams(window.location.search).get('task');
+    return raw ? Number(raw) : null;
+  });
+  const [deepLinkDismissed, setDeepLinkDismissed] = useState(false);
+  const closeDetail = () => { setDetailTask(null); setDeepLinkDismissed(true); };
 
   const employee = getStoredEmployee();
   const membership = getCurrentMembership(employee);
@@ -76,7 +86,7 @@ export default function TasksPage() {
     try {
       await fn();
       await load();
-      setDetailTask(null);
+      closeDetail();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Error');
     }
@@ -92,6 +102,12 @@ export default function TasksPage() {
     tasks.some((tk) => tk.assigneeId === myId && tk.status === 'IN_PROGRESS') ||
     tasks.some((tk) => tk.reviewerId === myId && tk.status === 'TESTING');
   const showProposePrompt = !isManager && !hasActiveWork;
+
+  // The detail modal shows an explicitly opened task, or the deep-linked one until it's first dismissed.
+  const deepLinkTask = !deepLinkDismissed && deepLinkId != null
+    ? tasks.find((tk) => tk.id === deepLinkId) ?? null
+    : null;
+  const openTask = detailTask ?? deepLinkTask;
 
   if (loading) {
     return <DashboardLayout><PageLoader /></DashboardLayout>;
@@ -186,15 +202,15 @@ export default function TasksPage() {
         />
       )}
 
-      {detailTask && (
+      {openTask && (
         <TaskDetailModal
-          task={detailTask}
+          task={openTask}
           isManager={isManager}
           myId={myId}
           members={members}
           mentionMembers={mentionMembers}
-          onClose={() => setDetailTask(null)}
-          onEdit={() => { setEditTask(detailTask); setDetailTask(null); }}
+          onClose={closeDetail}
+          onEdit={() => { setEditTask(openTask); closeDetail(); }}
           onAction={act}
         />
       )}
