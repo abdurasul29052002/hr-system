@@ -44,6 +44,7 @@ public class TaskCommentService {
     private final EmployeeRepository employeeRepository;
     private final TeamMembershipRepository membershipRepository;
     private final CommentAttachmentRepository attachmentRepository;
+    private final uz.sonic.hr.notification.NotificationRepository notificationRepository;
     private final StorageService storage;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactions;
@@ -193,17 +194,24 @@ public class TaskCommentService {
         comment.setContent(request.content());
         comment.setUpdatedAt(Instant.now());
 
-        // Re-parse mentions
-        comment.getMentions().clear();
+        // Re-parse mentions by DIFFING, not clear()-then-re-add: clearing and re-inserting the same
+        // (comment_id, mentioned_employee_id) pair made Hibernate INSERT the row before it DELETEd the old
+        // one, violating the unique constraint. Only drop mentions that are gone and add ones that are new.
         Set<String> mentionedUsernames = extractMentions(request.content());
-        Set<Employee> mentionedEmployees = resolveMentions(mentionedUsernames, comment.getTask().getTeam());
+        Set<Long> wantedIds = resolveMentions(mentionedUsernames, comment.getTask().getTeam())
+                .stream().map(Employee::getId).collect(java.util.stream.Collectors.toSet());
 
-        for (Employee mentioned : mentionedEmployees) {
-            CommentMention mention = CommentMention.builder()
-                    .comment(comment)
-                    .mentionedEmployee(mentioned)
-                    .build();
-            comment.getMentions().add(mention);
+        comment.getMentions().removeIf(m -> !wantedIds.contains(m.getMentionedEmployee().getId()));
+        Set<Long> existingIds = comment.getMentions().stream()
+                .map(m -> m.getMentionedEmployee().getId()).collect(java.util.stream.Collectors.toSet());
+
+        for (Long id : wantedIds) {
+            if (!existingIds.contains(id)) {
+                comment.getMentions().add(CommentMention.builder()
+                        .comment(comment)
+                        .mentionedEmployee(employeeRepository.getReferenceById(id))
+                        .build());
+            }
         }
 
         return CommentDto.from(commentRepository.save(comment), storage);
@@ -231,6 +239,10 @@ public class TaskCommentService {
         for (CommentAttachment attachment : comment.getAttachments()) {
             storage.delete(attachment.getFilePath());
         }
+
+        // Notifications (mention / new-comment / reply) FK to related_comment_id and would block the delete;
+        // once the comment is gone they are meaningless anyway, so drop them first.
+        notificationRepository.deleteByRelatedCommentId(commentId);
 
         commentRepository.delete(comment);
     }

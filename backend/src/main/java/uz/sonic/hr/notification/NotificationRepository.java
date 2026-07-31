@@ -23,4 +23,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Query("DELETE FROM Notification n WHERE n.employee.id = :employeeId")
     void deleteByEmployeeId(Long employeeId);
+
+    /** Removes notifications pointing at a comment before it is deleted (they FK to related_comment_id). */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.relatedComment.id = :commentId")
+    void deleteByRelatedCommentId(Long commentId);
 }
