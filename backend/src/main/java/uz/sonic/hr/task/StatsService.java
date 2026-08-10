@@ -13,6 +13,7 @@ import uz.sonic.hr.common.dto.Dtos.*;
 
 import java.time.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,14 +36,25 @@ public class StatsService {
         ZoneId zone = ZONE;
         Instant from = YearMonth.of(year, month).atDay(1).atStartOfDay(zone).toInstant();
         Instant to = YearMonth.of(year, month).plusMonths(1).atDay(1).atStartOfDay(zone).toInstant();
-        List<Task> tasks = taskRepository.findAllCreatedBetween(teamId, from, to);
-        // Tasks whose review was FINISHED this month (approved → DONE, by completedAt). Powers both
-        // "employee of the month" and the reviewed counts — a review is credited to the month it was
-        // completed in, independent of when the task was created (consistent windows).
+        List<Task> createdThisMonth = taskRepository.findAllCreatedBetween(teamId, from, to);
+        // Tasks whose review was FINISHED this month (approved → DONE, by completedAt). A task started in a
+        // previous month but completed this month counts as completed THIS month, not in its creation month.
         List<Task> completedThisMonth = taskRepository.findAllCompletedBetween(teamId, from, to);
 
-        long created = tasks.size();
-        long completed = count(tasks, TaskStatus.DONE);
+        // The month's activity = created this month ∪ completed this month, de-duplicated. Every metric below
+        // is computed over this set, so completion is always attributed to the month the task was finished.
+        Map<Long, Task> union = new LinkedHashMap<>();
+        for (Task t : createdThisMonth) {
+            union.put(t.getId(), t);
+        }
+        for (Task t : completedThisMonth) {
+            union.putIfAbsent(t.getId(), t);
+        }
+        List<Task> tasks = new ArrayList<>(union.values());
+        Set<Long> completedIds = completedThisMonth.stream().map(Task::getId).collect(Collectors.toSet());
+
+        long created = createdThisMonth.size();
+        long completed = completedThisMonth.size();
         long open = count(tasks, TaskStatus.OPEN);
         long inProgress = count(tasks, TaskStatus.IN_PROGRESS);
         long testing = count(tasks, TaskStatus.TESTING);
@@ -71,15 +83,17 @@ public class StatsService {
         for (List<Task> employeeTasks : byAssignee.values()) {
             Task first = employeeTasks.getFirst();
             long taken = employeeTasks.size();
-            long done = count(employeeTasks, TaskStatus.DONE);
+            // "Done" is what the person actually COMPLETED this month (subset of their month tasks), so a
+            // task they finished this month counts here even if it was created earlier.
+            long done = employeeTasks.stream().filter(t -> completedIds.contains(t.getId())).count();
             long working = count(employeeTasks, TaskStatus.IN_PROGRESS);
             long inReview = count(employeeTasks, TaskStatus.TESTING);
             long cancelledForEmp = count(employeeTasks, TaskStatus.CANCELLED);
             long reviewed = reviewedCount.getOrDefault(first.getAssignee().getId(), 0L);
             long overdue = employeeTasks.stream().filter(t -> isOverdue(t, zone)).count();
-            // On time = the assignee delivered (submitted) by the work deadline — consistent with isOverdue.
+            // On time = completed this month and delivered (submitted) by the work deadline.
             long onTime = employeeTasks.stream()
-                    .filter(t -> t.getStatus() == TaskStatus.DONE && !isOverdue(t, zone))
+                    .filter(t -> completedIds.contains(t.getId()) && !isOverdue(t, zone))
                     .count();
             OptionalDouble avgHours = employeeTasks.stream()
                     .filter(t -> t.getTakenAt() != null

@@ -107,6 +107,10 @@ class StatsServiceTest {
     @Test
     void monthly_perEmployeeMetricsAreCorrect() {
         when(taskRepo.findAllCreatedBetween(eq(TEAM_ID), any(), any())).thenReturn(julyTasks());
+        // "completed" is now attributed by completion month, so the two DONE tasks must be reported as
+        // completed this month.
+        when(taskRepo.findAllCompletedBetween(eq(TEAM_ID), any(), any()))
+                .thenReturn(julyTasks().stream().filter(t -> t.getStatus() == TaskStatus.DONE).toList());
 
         MonthlyStats m = stats.monthly(viewer, 2026, 7);
 
@@ -217,6 +221,24 @@ class StatsServiceTest {
         assertThat(nodiraStats.reviewed()).isEqualTo(2);
         // Jasur (the assignee) is credited as reviewed=0 and appears ahead of the pure reviewer.
         assertThat(m.perEmployee().get(0).fullName()).isEqualTo("Jasur");
+    }
+
+    @Test
+    void monthly_countsTaskAsCompletedInTheMonthItWasFinished() {
+        // Created in June (so NOT in July's created list) but completed in July → must count as completed in
+        // July, both in the total and for the assignee.
+        Task carriedOver = Task.builder().id(11L).title("Carried over").status(TaskStatus.DONE).assignee(jasur)
+                .deadline(LocalDate.of(2026, 7, 10)).takenAt(on(1, 9)).submittedAt(on(2, 12)).completedAt(on(3, 12))
+                .build();
+        when(taskRepo.findAllCreatedBetween(eq(TEAM_ID), any(), any())).thenReturn(List.of());
+        when(taskRepo.findAllCompletedBetween(eq(TEAM_ID), any(), any())).thenReturn(List.of(carriedOver));
+
+        MonthlyStats m = stats.monthly(viewer, 2026, 7);
+
+        assertThat(m.totalCompleted()).isEqualTo(1);
+        var jasurStats = m.perEmployee().stream().filter(e -> e.employeeId() == 35L).findFirst().orElseThrow();
+        assertThat(jasurStats.completed()).isEqualTo(1);
+        assertThat(jasurStats.onTime()).isEqualTo(1); // submitted 07-02, deadline 07-10
     }
 
     @Test

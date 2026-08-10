@@ -432,7 +432,12 @@ function MonthlyTimeline({ tasks, year, month }: { tasks: TimelineTask[]; year: 
                         const segs = segmentsOf(tk);
                         const barLeft = frac(segs.length ? segs[0].s : ms(tk.createdAt)) * 100;
                         const barRight = frac(segs.length ? segs[segs.length - 1].e : ms(tk.createdAt)) * 100;
-                        const completedLeft = tk.completedAt ? frac(ms(tk.completedAt)) * 100 : null;
+                        // The green "done" dot only when it was actually completed WITHIN this month. A task
+                        // that ran into the next month before finishing has no dot here (frac would otherwise
+                        // clamp it to the right edge and falsely read as "done this month").
+                        const completedMs = tk.completedAt ? ms(tk.completedAt) : null;
+                        const completedLeft = completedMs != null && completedMs >= monthStart && completedMs < monthEndExcl
+                          ? frac(completedMs) * 100 : null;
                         // Clear hover tooltip: the date (DD.MM) each lifecycle step happened, skipping unreached ones.
                         const steps = [
                           `${t('stats.tlCreated')} ${fmtDate(tk.createdAt)}`,
