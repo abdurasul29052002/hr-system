@@ -159,7 +159,7 @@ public class TaskService {
         return TaskDto.from(task);
     }
 
-    /** Leader/manager edits task metadata (title, description, priority, deadline, tags, reviewer). No status change. */
+    /** Leader/manager edits task metadata (title, description, priority, deadline, tags, assignee, reviewer). No status change. */
     @Transactional
     public TaskDto update(Long id, TaskRequest request, TeamMembership actor) {
         TeamService.requireManager(actor);
@@ -174,6 +174,11 @@ public class TaskService {
         if (request.tagIds() != null) {
             task.setTags(resolveTags(request.tagIds(), task.getTeam()));
         }
+        // Reassign from the form: a chosen member (validated as an active teammate) or the open pool (null).
+        // Set this BEFORE the reviewer so the reviewer≠assignee check runs against the NEW assignee.
+        task.setAssignee(request.assigneeId() != null
+                ? getActiveTeammate(request.assigneeId(), task.getTeam())
+                : null);
         task.setReviewer(resolveReviewer(request.reviewerId(), task.getTeam(), task.getAssignee()));
         return TaskDto.from(taskRepository.save(task));
     }
